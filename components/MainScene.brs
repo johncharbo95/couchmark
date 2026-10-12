@@ -106,16 +106,28 @@ end sub
 
 ' A screen set its "navigate" field. Supported requests:
 '   { screen: "ComponentName", fields: { ...values for the new screen... } }
-'   { action: "rescan" }
+'   { screen: ..., fields: ..., replace: true }  close the current screen first
+'   { action: "back" }    close the current screen
+'   { action: "rescan" }  rescan USB drives
+' (We use DoesExist because comparing a missing (invalid) value with a
+'  string is a runtime error in BrightScript.)
 sub onNavigate(event as Object)
     request = event.GetData()
     if request = invalid then return
 
-    if request.action = "rescan"
-        startUsbScan()
-    else if request.screen <> invalid
+    if request.DoesExist("action")
+        if request.action = "rescan"
+            startUsbScan()
+        else if request.action = "back"
+            if m.stack.Count() > 1 then popScreen()
+        end if
+        return
+    end if
+
+    if request.DoesExist("screen")
+        if request.DoesExist("replace") then popScreen()
         screen = CreateObject("roSGNode", request.screen)
-        if request.fields <> invalid then screen.SetFields(request.fields)
+        if request.DoesExist("fields") then screen.SetFields(request.fields)
         pushScreen(screen)
     end if
 end sub

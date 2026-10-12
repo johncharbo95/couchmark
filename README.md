@@ -3,7 +3,7 @@ Open-source media player for Roku TVs. Plays movies, shows, and photos from a US
 
 Everything runs on the TV. There is no server, account, or companion app: plug in a USB drive, open Couchmark, and press play.
 
-> **Status:** early development. Milestone 1 (app skeleton, USB detection, home screen) is done. The features below marked *planned* arrive in the next milestones.
+> **Status:** early development. Milestones 1–2 (USB detection, home screen, movies with resume) are done. The features below marked *planned* arrive in the next milestones.
 
 ## Features
 
@@ -11,7 +11,7 @@ Everything runs on the TV. There is no server, account, or companion app: plug i
 |---|---|---|
 | USB detection | Finds every attached USB drive and merges their folders into one library. Rescans automatically when a drive is plugged in or removed. | ✅ |
 | Home | Movies, Shows, Other, and Settings tiles. Missing folders are dimmed, and selecting one explains what to create. | ✅ |
-| Movies | Browse alphabetically, play, and resume where you stopped ("Resume from 1:02:14 / Start over"). Multi-file movies play as parts. Finished movies get a ✓. | planned |
+| Movies | Browse alphabetically, play, and resume where you stopped ("Resume from 1:02:14 / Start over"). Multi-file movies play as parts. Finished movies get a ✓. | ✅ |
 | Shows | Show → Season → Episode. "Continue S02E05 at 23:14", watched ✓ and partly-watched markers, and "Up next" when an episode ends. | planned |
 | Other | Slideshow of all photos and videos in a folder, ordered by the date they were taken. | planned |
 | Transitions | None, fade, slide, push, wipe, zoom, random. | planned |
@@ -74,7 +74,14 @@ Only one sideloaded app can be installed at a time, and installing another repla
 | Button | Action |
 |---|---|
 | Arrows / OK | Move and select |
-| Back | Go back one screen (exits from the home screen) |
+| Back | Go back one screen (exits from the home screen). In the player, Back stops playback and remembers your position. |
+| Play/Pause, ◀◀ ▶▶ | Control playback (Roku's standard player controls) |
+
+### Movies
+
+- Open **Movies** and pick a title. If you stopped partway through, choose **Resume from …** or **Start over**.
+- A blue bar next to a title shows how far you got. A ✓ means you finished it (watched past 90%).
+- If a movie folder holds several video files, they play one after another as parts. Between parts, an **Up next** card counts down 10 seconds (OK plays now, Back stops).
 
 If no drive is found, plug one in. Couchmark notices it automatically, or you can press **OK** to look again.
 

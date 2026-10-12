@@ -71,8 +71,17 @@ sub onItemSelected()
         return
     end if
 
-    ' The real screens arrive in later milestones.
-    milestones = { movies: "2", shows: "3", other: "4", settings: "5" }
+    roots = m.global.library.roots
+    if tile.id = "movies"
+        m.top.navigate = {
+            screen: "FolderListScreen"
+            fields: { title: "Movies", kind: "movies", paths: roots.movies }
+        }
+        return
+    end if
+
+    ' The remaining screens arrive in later milestones.
+    milestones = { shows: "3", other: "4", settings: "5" }
     m.top.navigate = {
         screen: "MessageScreen"
         fields: {

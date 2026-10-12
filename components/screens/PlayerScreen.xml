@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    PlayerScreen — full-screen video playback with progress saving.
+
+    Fields:
+      title     – movie name (also the key for saved progress)
+      parts     – array of file paths, played in order
+      startPart – 0-based part to start with
+      startPos  – seconds into that part
+
+    The Video node's built-in UI handles play/pause, seek and the
+    progress bar. Back stops playback and saves the position.
+-->
+<component name="PlayerScreen" extends="BaseScreen">
+    <interface>
+        <field id="title" type="string" />
+        <field id="parts" type="array" />
+        <field id="startPart" type="integer" value="0" />
+        <field id="startPos" type="integer" value="0" />
+    </interface>
+
+    <script type="text/brightscript" uri="PlayerScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />
+
+    <children>
+        <Rectangle width="1920" height="1080" color="0x000000FF" />
+        <Video id="video" width="1920" height="1080" />
+        <UpNextOverlay id="upNext" visible="false" />
+    </children>
+</component>

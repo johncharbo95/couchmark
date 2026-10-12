@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ListItem — one row of a FolderListScreen (MarkupList item component).
+    Reads from its ContentNode: title, badge ("", "watched", "partial"),
+    progress (0.0 – 1.0, for "partial").
+-->
+<component name="ListItem" extends="Group">
+    <interface>
+        <field id="itemContent" type="node" onChange="onContentSet" />
+        <field id="focusPercent" type="float" onChange="onFocusPercentChange" />
+    </interface>
+
+    <script type="text/brightscript" uri="ListItem.brs" />
+
+    <children>
+        <Rectangle id="background" width="1610" height="84" color="0x1E252DFF" />
+        <Rectangle id="focusBar" width="8" height="84" color="0x3D7EFFFF" opacity="0" />
+        <Label id="title" translation="[36, 0]" width="1300" height="84" vertAlign="center" ellipsizeOnBoundary="true">
+            <Font role="font" uri="font:SystemFontFile" size="38" />
+        </Label>
+
+        <!-- Badges on the right. -->
+        <Poster id="check" uri="pkg:/images/check.png" width="44" height="44" translation="[1530, 20]" visible="false" />
+        <Group id="progressBar" translation="[1390, 38]" visible="false">
+            <Rectangle width="180" height="8" color="0x3A4552FF" />
+            <Rectangle id="progressFill" width="0" height="8" color="0x3D7EFFFF" />
+        </Group>
+    </children>
+</component>

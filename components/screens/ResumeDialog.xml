@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ResumeDialog — "Resume from 1:02:14 / Start over".
+
+    Fields:
+      title        – movie / episode name
+      resumeText   – label of the first option
+      resumePart   – part index to resume (multi-part movies, else 0)
+      resumePos    – seconds to resume at
+      playerFields – fields for PlayerScreen; startPart/startPos are filled in
+                     here depending on the choice
+    The dialog *replaces* itself with the player, so Back from the player
+    returns to the list rather than to this dialog.
+-->
+<component name="ResumeDialog" extends="BaseScreen">
+    <interface>
+        <field id="title" type="string" alias="titleLabel.text" />
+        <field id="resumeText" type="string" onChange="buildOptions" />
+        <field id="resumePart" type="integer" />
+        <field id="resumePos" type="integer" />
+        <field id="playerFields" type="assocarray" />
+    </interface>
+
+    <script type="text/brightscript" uri="ResumeDialog.brs" />
+
+    <children>
+        <Label id="titleLabel" translation="[155, 300]" width="1610" wrap="true" maxLines="2">
+            <Font role="font" uri="font:BoldSystemFontFile" size="64" />
+        </Label>
+
+        <LabelList
+            id="options"
+            translation="[155, 520]"
+            itemSize="[900, 90]"
+            itemSpacing="[0, 12]"
+            color="0xC8D0D8FF"
+            focusedColor="0xFFFFFFFF"
+            focusBitmapBlendColor="0x3D7EFFFF">
+            <Font role="font" uri="font:SystemFontFile" size="40" />
+            <Font role="focusedFont" uri="font:BoldSystemFontFile" size="40" />
+        </LabelList>
+    </children>
+</component>

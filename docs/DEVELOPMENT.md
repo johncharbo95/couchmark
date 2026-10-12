@@ -54,14 +54,24 @@ components/
     BaseScreen.xml        Declares the "navigate" field
     HomeScreen            Movies / Shows / Other / Settings tiles
     MessageScreen         Title + explanation (errors, help, placeholders)
+    FolderListScreen      Scrolling list of folders (Movies) with ✓ / progress badges
+    ResumeDialog          "Resume from … / Start over"
+    PlayerScreen          Full-screen Video node, multi-part playback, saves progress
   tasks/                  Background work (Task nodes)
     UsbScanTask           Finds ext*: volumes and their Movies/Shows/Other folders
+    FolderScanTask        Lists subfolders or video files, merged across drives, natural-sorted
   widgets/                Reusable pieces
     HomeTile              One home tile (MarkupGrid item component)
+    ListItem              One list row with title and badge (MarkupList item component)
     LoadingOverlay        Dimmed background + spinner while a Task runs
+    UpNextOverlay         "Up next" card with a 10 s countdown
   lib/                    Plain BrightScript helpers included via <script>
     Text.brs              Shared user-facing strings
-images/                   Icons, splash screens, spinner
+    NaturalSort.brs       Natural sort keys, S01E02 / 1x02 detection
+    MediaTypes.brs        Supported extensions, junk-file filter, stream formats
+    Format.brs            Time formatting (1:02:14)
+    Progress.brs          Registry storage of playback progress + pruning
+images/                   Icons, splash screens, spinner, ✓ badge
 tools/                    Dev scripts (not packaged)
 docs/                     Documentation (not packaged)
 ```
@@ -76,10 +86,12 @@ Only `manifest`, `source/`, `components/` and `images/` are packaged. This is se
 
 ```brightscript
 m.top.navigate = { screen: "MessageScreen", fields: { title: "Hello", message: "…" } }
+m.top.navigate = { screen: "PlayerScreen", fields: {...}, replace: true }  ' close me first
+m.top.navigate = { action: "back" }     ' close me
 m.top.navigate = { action: "rescan" }   ' rescan USB drives
 ```
 
-MainScene creates the node, applies `fields` with `SetFields`, hides the previous screen, and focuses the new one. **Back** pops the top screen. On the first screen, Back is left unhandled so Roku exits the app.
+MainScene creates the node, applies `fields` with `SetFields`, hides the previous screen, and focuses the new one. `replace` is used by ResumeDialog so Back from the player returns to the list, not the dialog. **Back** pops the top screen. On the first screen, Back is left unhandled so Roku exits the app.
 
 When a screen receives focus, it passes focus on to its main list or grid (see `onFocusedChildChange` in `HomeScreen.brs`). The list remembers its position, so returning to a screen keeps your place.
 
@@ -100,21 +112,37 @@ When a screen receives focus, it passes focus on to its main list or grid (see `
 
 `main.brs` forwards `roFileSystemEvent`s (drive plugged in or removed) to `MainScene.volumesChanged`. MainScene waits 1.5 s for the drive to mount, rescans, and returns to the home screen.
 
+### Folder scanning and sorting
+
+`FolderScanTask` lists folders on demand rather than scanning the whole drive up front. Opening Movies lists only the movie folders. A movie's video files ("parts") are listed when you select it. When several drives are attached, entries from all of them are merged, and if the same folder name exists on two drives, the first drive wins. Junk files (`.*`, `$*`, `Thumbs.db`, …) and unsupported extensions are skipped.
+
+Sorting uses `NaturalSortKey()`, which zero-pads every run of digits so a plain alphabetical sort gives "2" before "10". With `episodeAware`, names containing `S01E02` or `1x02` sort by season and episode first.
+
+### Movie playback
+
+1. FolderListScreen → OK on a movie → FolderScanTask lists its parts.
+2. If saved progress exists → ResumeDialog → PlayerScreen (using `replace`). Otherwise the movie goes straight to PlayerScreen.
+3. PlayerScreen plays one part at a time with a Video node (`content.playStart` = resume point). When a part finishes, UpNextOverlay counts down to the next part. After the last part, the player closes.
+4. Progress is saved every 10 s and on Back. Past 90% of the last part, the movie is marked watched (✓) and its resume point is cleared. Under 15 s into part 1, nothing is saved.
+5. Returning to the list (its `visible` becomes true) refreshes the badges.
+
+Playback errors (usually an unsupported codec) replace the player with a MessageScreen that shows the Video node's `errorMsg`.
+
 ### Planned (later milestones)
 
-- **FolderScanTask:** lists one folder, filters junk files, and natural-sorts. Scanning is lazy: a movie's parts are only listed when you open it.
 - **MediaDateTask:** reads slideshow dates from EXIF (`roImageMetadata`), the MP4/MOV `mvhd` box (partial `roByteArray.ReadFile` reads), or the file's mtime.
-- **Registry storage:** described below.
 
-### Registry schema (planned for milestones 2–5)
+### Registry schema
 
-Roku gives each app about 16 KB of persistent registry storage.
+Roku gives each app about 16 KB of persistent registry storage. The code for this lives in `components/lib/Progress.brs`.
 
-| Section | Key | Value |
-|---|---|---|
-| `settings` | `dur`, `tr`, `spd` | photo seconds, transition name, speed name |
-| `progress` | 8 hex chars of MD5(folder name) | movie: `lastUsed\|part\|posSec\|watched` |
-| `progress` | 8 hex chars of MD5(show folder) | show: `lastUsed\|lastEpHash\|posSec\|watchedHashes\|partials` |
+| Section | Key | Value | Status |
+|---|---|---|---|
+| `progress` | `m` + 8 hex chars of MD5(lower-case movie folder name) | `lastUsed\|part\|parts\|pos\|dur\|watched` | ✅ |
+| `progress` | `s` + 8 hex chars of MD5(show folder) | `lastUsed\|lastEpHash\|posSec\|watchedHashes\|partials` | planned |
+| `settings` | `dur`, `tr`, `spd` | photo seconds, transition name, speed name | planned |
+
+Movie example: `1760270000|0|1|3734|7200|0` means part 1 of 1, resume at 1:02:14, part length 2:00:00, not yet watched. `part` is 0-based, and `lastUsed` is in seconds since 1970.
 
 Episode hashes are 6 hex characters of MD5 of the episode's path relative to the show folder. When the total size passes about 13 KB, the entries with the oldest `lastUsed` are pruned first.
 

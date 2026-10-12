@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FolderScanTask — lists one or more folders on the USB drive.
+
+    Inputs:
+      paths  – folders to list, e.g. ["ext1:/Movies", "ext2:/Movies"].
+               Results from several folders are merged (several drives).
+      mode   – "folders": list subfolders (e.g. the movies in Movies/)
+               "videos":  list playable video files (e.g. a movie's parts)
+      episodeAware – sort S01E02 / 1x02 codes by season and episode
+    Output:
+      content – a ContentNode whose children are the sorted entries:
+                title (display name) and url (full path)
+-->
+<component name="FolderScanTask" extends="Task">
+    <interface>
+        <field id="paths" type="array" />
+        <field id="mode" type="string" value="folders" />
+        <field id="episodeAware" type="boolean" value="false" />
+        <field id="content" type="node" />
+    </interface>
+    <script type="text/brightscript" uri="FolderScanTask.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/NaturalSort.brs" />
+</component>

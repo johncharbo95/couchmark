@@ -87,3 +87,20 @@ $g.DrawArc($pen, 8, 8, 80, 80, 0, 280)
 $bmp.Save((Join-Path $out 'spinner.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $bmp.Dispose()
 Write-Host 'wrote spinner.png (96 x 96)'
+
+# Watched badge: white check mark on an accent circle, 44x44 transparent.
+$bmp = New-Object System.Drawing.Bitmap 44, 44
+$g = [System.Drawing.Graphics]::FromImage($bmp)
+$g.SmoothingMode = 'AntiAlias'
+$g.Clear([System.Drawing.Color]::Transparent)
+$g.FillEllipse((New-Object System.Drawing.SolidBrush $accent), 1, 1, 42, 42)
+$pen = New-Object System.Drawing.Pen $white, 5
+$pen.StartCap = 'Round'; $pen.EndCap = 'Round'; $pen.LineJoin = 'Round'
+$g.DrawLines($pen, [System.Drawing.PointF[]]@(
+    (New-Object System.Drawing.PointF 12, 23),
+    (New-Object System.Drawing.PointF 19, 30),
+    (New-Object System.Drawing.PointF 32, 15)
+))
+$bmp.Save((Join-Path $out 'check.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+$g.Dispose(); $bmp.Dispose()
+Write-Host 'wrote check.png (44 x 44)'
