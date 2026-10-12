@@ -11,6 +11,8 @@
 '   { type: "show",   paths, art }                          → ShowScreen
 '   { type: "movie",  path, art }                           → MovieScreen
 '   { type: "browse", id: "movies" | "shows" | "other" | "settings" }
+' ✱ (options) on a movie tile marks it watched / unwatched; on a Continue
+' Watching tile it marks that movie / episode watched, so the row moves on.
 ' ============================================================================
 
 sub init()
@@ -19,6 +21,7 @@ sub init()
     m.heroTitle = m.top.FindNode("heroTitle")
     m.heroSubtitle = m.top.FindNode("heroSubtitle")
     m.loading = m.top.FindNode("loading")
+    m.toast = m.top.FindNode("toast")
 
     m.rows.ObserveField("rowItemSelected", "onTileSelected")
     m.rows.ObserveField("rowItemFocused", "onTileFocused")
@@ -171,6 +174,46 @@ function tileAt(position as Dynamic) as Dynamic
     if row = invalid then return invalid
     return row.GetChild(position[1])
 end function
+
+function onKeyEvent(key as String, press as Boolean) as Boolean
+    if press and key = "options"
+        tile = tileAt(m.rows.rowItemFocused)
+        if tile <> invalid then markTile(tile)
+        return true
+    end if
+    return false
+end function
+
+sub markTile(tile as Object)
+    action = tile.action
+    if action.type = "movie"
+        record = ProgressGetMovie(tile.title)
+        parts = 1
+        if record <> invalid then parts = record.parts
+        watch = (MovieToggleAction(record) = "watch")
+        ProgressSetMovieWatched(tile.title, parts, watch)
+        if watch then m.toast.message = tile.title + " marked as watched" else m.toast.message = tile.title + " marked as unwatched"
+    else if action.type = "play"
+        player = action.player
+        if player.kind = "movie"
+            ProgressSetMovieWatched(tile.title, player.items.Count(), true)
+            m.toast.message = tile.title + " marked as watched"
+        else
+            item = player.items[player.startIndex]
+            record = ProgressGetShow(tile.title)
+            ToggleEpisodesWatched(record, [item.id], EpisodeIds(player.items, 0, -1), true)
+            ProgressSaveShow(tile.title, record)
+            m.toast.message = tile.title + "  ·  " + EpisodeShortLabel(item) + " marked as watched"
+        end if
+    else if action.type = "show"
+        m.toast.message = "Open the show to mark episodes as watched"
+        return
+    else
+        return
+    end if
+    ' Rebuild the rows (badges, Continue Watching) from the new progress.
+    startScan("continue")
+end sub
 
 sub onTileSelected()
     tile = tileAt(m.rows.rowItemSelected)

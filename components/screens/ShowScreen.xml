@@ -68,6 +68,11 @@
             <Font role="font" uri="font:SystemFontFile" size="36" />
         </Label>
 
+        <Label text="*  Mark episode or season as watched / unwatched" translation="[96, 1030]" color="0x8A96A3FF">
+            <Font role="font" uri="font:SystemFontFile" size="24" />
+        </Label>
+
+        <Toast id="toast" />
         <LoadingOverlay id="loading" visible="false" />
     </children>
 </component>

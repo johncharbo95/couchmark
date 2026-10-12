@@ -48,6 +48,11 @@
             <Font role="rowLabelFont" uri="font:BoldSystemFontFile" size="34" />
         </RowList>
 
+        <Label text="*  Mark as watched / unwatched" translation="[1224, 62]" width="600" horizAlign="right" color="0x8A96A3FF">
+            <Font role="font" uri="font:SystemFontFile" size="24" />
+        </Label>
+
+        <Toast id="toast" />
         <LoadingOverlay id="loading" visible="false" />
     </children>
 </component>

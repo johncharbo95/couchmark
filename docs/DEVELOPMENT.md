@@ -73,6 +73,7 @@ components/
     MediaTile             16:9 tile with artwork, progress bar, ✓ (RowList item)
     ListItem              List row with title, detail text, badge (MarkupList item)
     LoadingOverlay        Dimmed background + spinner while a Task runs
+    Toast                 Short confirmation message ("Marked as watched")
     UpNextOverlay         "Up next" card with a 10 s countdown
   lib/                    Plain BrightScript helpers included via <script>
     Scan.brs              Reading folders: ScanFolders, ScanVideos, ScanShow, FindArtwork (Tasks only)
@@ -216,6 +217,22 @@ The old photo never goes away before the new one covers it, so there is no black
 
 `SlideshowScreen` has one `Animation` with eight interpolators (opacity, translation, scale and inner translation for slots A and B). It copies a plan into their `keyValue`s, puts the incoming slot on top, and starts the animation. Only after it ends (`endTransition`) is the old slot hidden, reset and reused to **preload** the next photo; preloading earlier would change the picture that is still sliding out. Skipping ahead mid-transition jumps to the end state first. After a video, or for the first photo, there's nothing to transition from, so the photo fades in over black.
 
+### Marking as watched / unwatched
+
+The ✱ key arrives as `"options"` in `onKeyEvent`; the lists and grids don't use it themselves. The decisions are pure functions in `lib/Library.brs` (unit-tested):
+
+- `MovieToggleAction(record)` returns `"unwatch"` for a finished movie and `"watch"` otherwise. `ProgressSetMovieWatched()` then writes a watched record, or deletes the record ("never played").
+- `ToggleEpisodesWatched(record, ids, allIds, forceWatch)`: if all the given episodes are watched, unmark them; otherwise mark them all watched. Resume points are cleared either way. `lastEp` only ever moves *forward* in show order (`allIds`), so marking an earlier season doesn't lose your place. Unmarking the last-played episode resets it, and `ContinueTarget()` then picks the first unwatched episode. `forceWatch` is used by "Continue" buttons and tiles, where ✱ always means "I've seen this".
+
+| Screen | ✱ on | Calls |
+|---|---|---|
+| HomeScreen | movie tile / Continue tile | `ProgressSetMovieWatched` / `ToggleEpisodesWatched(..., true)`, then reruns the `continue` scan to rebuild rows |
+| FolderListScreen | movie row | `ProgressSetMovieWatched`, `refreshBadges()` |
+| MovieScreen | anywhere (also a button) | `ProgressSetMovieWatched`, `refresh()` |
+| ShowScreen | Continue / season / episode | `ToggleEpisodesWatched`, `ProgressSaveShow`, `refresh()` |
+
+Each shows a `Toast`. On-screen hints use a plain `*`, since the ✱ glyph may not exist in the Roku system font.
+
 ### Settings screen
 
 Rows are ListItems with a `key` field. Left/Right (unused by the vertical list, so they reach `SettingsScreen.onKeyEvent`) call `NextSettingValue()` and save immediately with `SettingsSave()`. The slideshow reads settings when it starts. *Clear watch history* needs OK twice, and moving to another row cancels. It calls `ProgressClearAll()`, and the home screen's Continue Watching row updates when you return.
@@ -250,7 +267,7 @@ Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay 
 | `MediaTypes.test.brs` | supported/junk files, extensions, episode-name cleanup |
 | `Format.test.brs` | `1:02:14`, "23 min" |
 | `Progress.test.brs` | registry encoding round trips, titles with `\|`, resume-point limit, newest-first list, pruning to the size budget |
-| `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text |
+| `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text, mark watched/unwatched (movies, episodes, seasons, "continue" never moves backwards) |
 | `MediaDate.test.brs` | MP4/MOV `mvhd` dates on real files (`tests/fixtures/`), fallback to the file date |
 | `Transitions.test.brs` | every effect's start/end values, wipe keeps the picture still, random never picks none |
 | `Settings.test.brs` | defaults, save/load, damaged values, next/previous with wrap-around, labels |

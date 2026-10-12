@@ -2,7 +2,8 @@
 ' MovieScreen.brs
 '
 ' On first focus, lists the movie's video files ("parts"), then shows
-' Resume / Play from beginning. Refreshes when it reappears after playback.
+' Resume / Play from beginning, and Mark as watched / unwatched (also on ✱).
+' Refreshes when it reappears after playback.
 ' ============================================================================
 
 sub init()
@@ -11,6 +12,7 @@ sub init()
     m.progressBar = m.top.FindNode("progressBar")
     m.progressFill = m.top.FindNode("progressFill")
     m.loading = m.top.FindNode("loading")
+    m.toast = m.top.FindNode("toast")
 
     m.buttons.ObserveField("itemSelected", "onButtonSelected")
     m.top.ObserveField("focusedChild", "onFocusedChildChange")
@@ -73,20 +75,40 @@ sub refresh()
     m.progressBar.visible = m.canResume
     if m.canResume then m.progressFill.width = 500 * MovieFraction(m.record)
 
+    ' Each button's id says what it does.
+    focused = m.buttons.itemFocused
     content = CreateObject("roSGNode", "ContentNode")
     if m.canResume
-        content.CreateChild("ContentNode").title = "Resume"
-        content.CreateChild("ContentNode").title = "Play from beginning"
+        addButton(content, "resume", "Resume")
+        addButton(content, "restart", "Play from beginning")
     else
-        content.CreateChild("ContentNode").title = "Play"
+        addButton(content, "restart", "Play")
+    end if
+    if MovieToggleAction(m.record) = "watch"
+        addButton(content, "toggle", "Mark as watched")
+    else
+        addButton(content, "toggle", "Mark as unwatched")
     end if
     m.buttons.content = content
+    if focused > 0 and focused < content.GetChildCount() then m.buttons.jumpToItem = focused
+end sub
+
+sub addButton(content as Object, id as String, title as String)
+    button = content.CreateChild("ContentNode")
+    button.id = id
+    button.title = title
 end sub
 
 sub onButtonSelected()
+    id = m.buttons.content.GetChild(m.buttons.itemSelected).id
+    if id = "toggle"
+        toggleWatched()
+        return
+    end if
+
     startIndex = 0
     startPos = 0
-    if m.canResume and m.buttons.itemSelected = 0
+    if id = "resume"
         startIndex = m.record.part
         startPos = m.record.pos
     end if
@@ -96,3 +118,20 @@ sub onButtonSelected()
         fields: { kind: "movie", title: m.top.title, items: MoviePlayerItems(m.parts), startIndex: startIndex, startPos: startPos }
     }
 end sub
+
+' ✱ or the "Mark as …" button.
+sub toggleWatched()
+    if m.parts = invalid or m.parts.Count() = 0 then return
+    watch = (MovieToggleAction(m.record) = "watch")
+    ProgressSetMovieWatched(m.top.title, m.parts.Count(), watch)
+    if watch then m.toast.message = "Marked as watched" else m.toast.message = "Marked as unwatched"
+    refresh()
+end sub
+
+function onKeyEvent(key as String, press as Boolean) as Boolean
+    if press and key = "options"
+        toggleWatched()
+        return true
+    end if
+    return false
+end function

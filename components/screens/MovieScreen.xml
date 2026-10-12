@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     MovieScreen — a movie's page: artwork, title, and
-    "Resume" + "Play from beginning" (or just "Play").
+    "Resume" + "Play from beginning" (or just "Play"), and
+    "Mark as watched / unwatched" (also on the ✱ button).
 
     Fields:
       title – movie folder name (also the key for saved progress)
@@ -47,6 +48,11 @@
             <Font role="focusedFont" uri="font:BoldSystemFontFile" size="36" />
         </LabelList>
 
+        <Label text="*  Mark as watched / unwatched" translation="[96, 1000]" color="0x8A96A3FF">
+            <Font role="font" uri="font:SystemFontFile" size="26" />
+        </Label>
+
+        <Toast id="toast" />
         <LoadingOverlay id="loading" visible="false" />
     </children>
 </component>

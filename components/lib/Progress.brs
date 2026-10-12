@@ -207,6 +207,18 @@ end function
 ' Housekeeping
 ' ----------------------------------------------------------------------------
 
+' Marks a movie watched (✓, resume point cleared) or unwatched (its record
+' is deleted, as if never played).
+sub ProgressSetMovieWatched(name as String, parts as Integer, watched as Boolean)
+    if watched
+        ProgressSaveMovie(name, { part: 0, parts: parts, pos: 0, dur: 0, watched: true })
+    else
+        section = progressSection()
+        section.Delete(ProgressKey("m", name))
+        section.Flush()
+    end if
+end sub
+
 ' Deletes all saved progress (Settings > Clear watch history).
 sub ProgressClearAll()
     section = progressSection()

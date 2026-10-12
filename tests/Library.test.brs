@@ -7,7 +7,53 @@ sub Main()
     testContinueTarget()
     testEpisodeBadge()
     testMovies()
+    testMarkMovie()
+    testMarkEpisodes()
     finishTests()
+end sub
+
+sub testMarkMovie()
+    assertEqual(MovieToggleAction(invalid), "watch", "never played: mark watched")
+    assertEqual(MovieToggleAction({ part: 0, parts: 1, pos: 500, dur: 3600, watched: false }), "watch", "partly watched: mark watched")
+    assertEqual(MovieToggleAction({ part: 0, parts: 1, pos: 0, dur: 0, watched: true }), "unwatch", "finished: mark unwatched")
+    assertEqual(MovieToggleAction({ part: 0, parts: 1, pos: 500, dur: 3600, watched: true }), "watch", "re-watching: mark watched")
+end sub
+
+sub testMarkEpisodes()
+    all = ["a", "b", "c", "d"]
+    assertEqual(EpisodeIds(episodes(), 1, 2), ["b", "c"], "slice of ids")
+    assertEqual(EpisodeIds(episodes(), 1, -1), ["b", "c"], "ids to the end")
+
+    record = { lastEp: "", watched: {}, partials: [] }
+    ProgressSetPartial(record, "b", 300, 1500)
+    assertEqual(ToggleEpisodesWatched(record, ["b"], all), true, "partly watched episode: now watched")
+    assertTrue(record.watched.DoesExist("b"), "b watched")
+    assertEqual(ProgressFindPartial(record, "b"), invalid, "its resume point is cleared")
+    assertEqual(record.lastEp, "b", "continue moves past it")
+
+    assertEqual(ToggleEpisodesWatched(record, ["b"], all), false, "watched episode: now unwatched")
+    assertTrue(not record.watched.DoesExist("b"), "b unwatched")
+    assertEqual(record.lastEp, "", "unmarking the last-played episode resets continue")
+
+    ' A season where only some episodes are watched: all become watched.
+    record = { lastEp: "", watched: { a: true }, partials: [] }
+    assertEqual(ToggleEpisodesWatched(record, ["a", "b"], all), true, "partly watched season: all watched")
+    assertEqual(record.watched.Count(), 2, "both watched")
+    assertEqual(ToggleEpisodesWatched(record, ["a", "b"], all), false, "fully watched season: all unwatched")
+    assertEqual(record.watched.Count(), 0, "none watched")
+
+    ' Marking an earlier season never moves "continue" backwards.
+    record = { lastEp: "d", watched: {}, partials: [] }
+    ToggleEpisodesWatched(record, ["a", "b"], all)
+    assertEqual(record.lastEp, "d", "continue stays at the later episode")
+
+    assertEqual(ToggleEpisodesWatched(record, [], all), false, "no episodes: nothing happens")
+
+    ' Continue Watching tile: a watched episode being re-watched stays watched.
+    record = { lastEp: "b", watched: { b: true }, partials: [] }
+    ProgressSetPartial(record, "b", 300, 1500)
+    assertEqual(ToggleEpisodesWatched(record, ["b"], all, true), true, "force: stays watched")
+    assertEqual(ProgressFindPartial(record, "b"), invalid, "force: resume point cleared")
 end sub
 
 function episodes() as Object

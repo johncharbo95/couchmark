@@ -7,8 +7,19 @@ sub Main()
     testPartials()
     testRecentList()
     testPruning()
+    testMovieWatched()
     testClearAll()
     finishTests()
+end sub
+
+sub testMovieWatched()
+    resetRegistry()
+    ProgressSaveMovie("Heat", { part: 1, parts: 2, pos: 845, dur: 3600, watched: false })
+    ProgressSetMovieWatched("Heat", 2, true)
+    record = ProgressGetMovie("Heat")
+    assertEqual([record.watched, record.pos, record.part], [true, 0, 0], "marked watched: resume point cleared")
+    ProgressSetMovieWatched("Heat", 2, false)
+    assertEqual(ProgressGetMovie("Heat"), invalid, "marked unwatched: as if never played")
 end sub
 
 sub testMovieRoundTrip()

@@ -6,6 +6,8 @@
 '   "seasons"   season list (left)         Right → episodes, Up (top) → continue
 '   "episodes"  episode list (right)       Left  → seasons,  Up (top) → continue
 ' Highlighting a season fills the episode list with its episodes.
+' ✱ marks the highlighted episode / whole season / Continue episode as
+' watched or unwatched (ToggleEpisodesWatched in lib/Library.brs).
 ' Everything is refreshed when the screen reappears after playback.
 ' ============================================================================
 
@@ -17,6 +19,7 @@ sub init()
     m.emptyLabel = m.top.FindNode("emptyLabel")
     m.heroArt = m.top.FindNode("heroArt")
     m.loading = m.top.FindNode("loading")
+    m.toast = m.top.FindNode("toast")
 
     m.continueButton.ObserveField("itemSelected", "onContinueSelected")
     m.seasons.ObserveField("itemFocused", "onSeasonFocused")
@@ -203,6 +206,11 @@ end sub
 function onKeyEvent(key as String, press as Boolean) as Boolean
     if not press then return false
 
+    if key = "options"
+        toggleWatched()
+        return true
+    end if
+
     if m.area = "continue" and key = "down"
         focusArea("episodes")
         return true
@@ -217,6 +225,42 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
     return false
+end function
+
+' ----------------------------------------------------------------------------
+' Mark as watched / unwatched (✱)
+' ----------------------------------------------------------------------------
+
+sub toggleWatched()
+    if m.show = invalid or m.show.items.Count() = 0 then return
+    allIds = EpisodeIds(m.show.items, 0, -1)
+    record = ProgressGetShow(m.top.title)
+
+    if m.area = "continue"
+        ' "I've already seen this one": always marks watched.
+        item = m.show.items[m.target.index]
+        ToggleEpisodesWatched(record, [item.id], allIds, true)
+        message = EpisodeShortLabel(item) + " marked as watched"
+    else if m.area = "seasons"
+        season = m.show.seasons[m.seasonIndex]
+        watched = ToggleEpisodesWatched(record, EpisodeIds(m.show.items, season.first, season.count), allIds)
+        message = season.title + markedText(watched)
+    else
+        item = m.show.items[m.show.seasons[m.seasonIndex].first + m.episodes.itemFocused]
+        watched = ToggleEpisodesWatched(record, [item.id], allIds)
+        message = EpisodeShortLabel(item) + markedText(watched)
+    end if
+
+    ProgressSaveShow(m.top.title, record)
+    m.toast.message = message
+    refresh()
+    ' The Continue button may have disappeared (show finished).
+    focusArea(m.area)
+end sub
+
+function markedText(watched as Boolean) as String
+    if watched then return " marked as watched"
+    return " marked as unwatched"
 end function
 
 ' ----------------------------------------------------------------------------

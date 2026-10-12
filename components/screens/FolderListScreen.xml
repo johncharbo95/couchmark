@@ -44,6 +44,7 @@
             <Font role="font" uri="font:SystemFontFile" size="36" />
         </Label>
 
+        <Toast id="toast" />
         <LoadingOverlay id="loading" visible="false" />
     </children>
 </component>

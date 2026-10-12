@@ -14,6 +14,7 @@ Everything runs on the TV. There is no server, account, or companion app: plug i
 | Movies | Movie page with Resume / Play from beginning. Multi-file movies play as parts. Finished movies get a ✓. | ✅ |
 | Shows | Show page with seasons and episodes side by side, "Continue S02E05 at 23:14", watched ✓ and partly-watched markers, and "Up next" when an episode ends. | ✅ |
 | Player | Netflix-style controls: 10-second skip, instant replay, previous/next episode, progress bar. | ✅ |
+| Watched marks | Mark movies, episodes or whole seasons as watched / unwatched with the ✱ button. | ✅ |
 | Other | Browse folders and play a slideshow of all photos and videos in a folder, ordered by the date they were taken. | ✅ |
 | Transitions | None, fade, slide, push, wipe, zoom, random, at three speeds. The next photo is preloaded, so there's never a black flash. | ✅ |
 | Settings | Photo duration, transition type and speed, clear watch history. | ✅ |
@@ -118,6 +119,20 @@ Open **Browse → Other** to see the folders inside `Other`. In any folder that 
 | **Right / ▶▶** | Next photo or video |
 | **Up / Down / \*** | Show the date, file name and position (e.g. 12 / 240) |
 | **Back** | Leave the slideshow |
+
+### Marking as watched / unwatched
+
+Press **✱** (the star/options button) on:
+
+| Where | What ✱ does |
+|---|---|
+| A movie (home row, A–Z list, or the movie's page) | Watched ✓ ↔ unwatched. Marking watched clears its resume point. The movie page also has a **Mark as watched** button. |
+| A **Continue Watching** tile | "I've already seen this": marks that movie or episode watched, and the row moves on to the next episode. |
+| An episode (show page) | Watched ✓ ↔ unwatched |
+| A season (show page, left list) | Marks every episode in it watched. If they all are already, marks them all unwatched. |
+| The **Continue** button (show page) | Marks that episode watched, so Continue moves on |
+
+A short message confirms each change. Marking episodes watched moves the show's **Continue** forward, never backwards. Marking an earlier season doesn't lose your place in a later one.
 
 ### Player controls
 

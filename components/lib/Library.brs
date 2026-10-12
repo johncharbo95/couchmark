@@ -34,6 +34,13 @@ function MovieFraction(record as Object) as Float
     return (record.part + partFraction) / parts
 end function
 
+' What ✱ (mark watched / unwatched) does to a movie: "unwatch" when it's
+' finished (✓), otherwise "watch" (also when it's partly watched).
+function MovieToggleAction(record as Dynamic) as String
+    if record <> invalid and record.watched and not MovieInProgress(record) then return "unwatch"
+    return "watch"
+end function
+
 ' Badge for a movie tile/row: { badge: "" | "watched" | "partial", progress }
 function MovieBadge(record as Dynamic) as Object
     if MovieInProgress(record) then return { badge: "partial", progress: MovieFraction(record) }
@@ -57,6 +64,58 @@ end function
 function EpisodeShortLabel(item as Object) as String
     if item.code <> "" then return item.code
     return item.label
+end function
+
+' ✱ on episodes (one episode, or every episode of a season):
+'   - if they are all watched already: mark them unwatched
+'   - otherwise: mark them all watched
+' Resume points of those episodes are cleared either way. "Continue" moves
+' forward past episodes marked watched (never backwards), and unmarking the
+' last-played episode resets it.
+' ids: the episodes to change, in watching order. allIds: every episode of
+' the show in watching order. forceWatch: always mark watched (Continue
+' Watching tile: "I've seen this"). Changes record in place (save it
+' afterwards); returns true if the episodes are now watched.
+function ToggleEpisodesWatched(record as Object, ids as Object, allIds as Object, forceWatch = false as Boolean) as Boolean
+    if ids.Count() = 0 then return false
+
+    allWatched = true
+    for each id in ids
+        if not record.watched.DoesExist(id) then allWatched = false
+    end for
+    watch = forceWatch or not allWatched
+
+    for each id in ids
+        ProgressRemovePartial(record, id)
+        if watch
+            record.watched[id] = true
+        else
+            record.watched.Delete(id)
+            if record.lastEp = id then record.lastEp = ""
+        end if
+    end for
+    if watch and indexOf(allIds, ids[ids.Count() - 1]) > indexOf(allIds, record.lastEp)
+        record.lastEp = ids[ids.Count() - 1]
+    end if
+    return watch
+end function
+
+' The ids of items[first] .. items[first + count - 1] (count -1 = to the end).
+function EpisodeIds(items as Object, first as Integer, count as Integer) as Object
+    if count < 0 then count = items.Count() - first
+    ids = []
+    for i = first to first + count - 1
+        ids.Push(items[i].id)
+    end for
+    return ids
+end function
+
+' Position of value in list, or -1.
+function indexOf(list as Object, value as String) as Integer
+    for i = 0 to list.Count() - 1
+        if list[i] = value then return i
+    end for
+    return -1
 end function
 
 ' Badge for one episode: { badge: "" | "watched" | "partial", progress }.

@@ -3,7 +3,8 @@
 ' Other folder browser.
 '
 '   1. On first focus, scan the folder(s) for subfolders.
-'   2. OK opens MovieScreen or ShowScreen.
+'   2. OK opens MovieScreen or ShowScreen. On a movie, ✱ marks it watched /
+'      unwatched.
 '   Other: the first row plays a slideshow of this folder's photos and
 '   videos; the other rows open subfolders (another FolderListScreen).
 '   Movie badges (✓ / progress bar) are refreshed whenever the screen
@@ -15,6 +16,7 @@ sub init()
     m.countLabel = m.top.FindNode("countLabel")
     m.emptyLabel = m.top.FindNode("emptyLabel")
     m.loading = m.top.FindNode("loading")
+    m.toast = m.top.FindNode("toast")
 
     m.list.ObserveField("itemSelected", "onItemSelected")
     m.top.ObserveField("focusedChild", "onFocusedChildChange")
@@ -118,6 +120,29 @@ function plural(count as Integer, word as String) as String
     if count = 1 then return "1 " + word
     return count.ToStr() + " " + word + "s"
 end function
+
+function onKeyEvent(key as String, press as Boolean) as Boolean
+    if press and key = "options" and m.list.content <> invalid
+        if m.top.kind = "movies"
+            toggleMovieWatched(m.list.content.GetChild(m.list.itemFocused))
+        else if m.top.kind = "shows"
+            m.toast.message = "Open the show to mark episodes as watched"
+        end if
+        return true
+    end if
+    return false
+end function
+
+sub toggleMovieWatched(item as Object)
+    if item = invalid then return
+    record = ProgressGetMovie(item.title)
+    parts = 1
+    if record <> invalid then parts = record.parts
+    watch = (MovieToggleAction(record) = "watch")
+    ProgressSetMovieWatched(item.title, parts, watch)
+    if watch then m.toast.message = item.title + " marked as watched" else m.toast.message = item.title + " marked as unwatched"
+    refreshBadges()
+end sub
 
 sub onItemSelected()
     item = m.list.content.GetChild(m.list.itemSelected)
