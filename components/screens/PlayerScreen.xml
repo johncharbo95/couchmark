@@ -57,7 +57,7 @@
             <Label id="elapsedLabel" translation="[96, 816]" width="300">
                 <Font role="font" uri="font:SystemFontFile" size="30" />
             </Label>
-            <Label id="remainingLabel" translation="[1524, 816]" width="300" horizAlign="right">
+            <Label id="remainingLabel" translation="[1324, 816]" width="500" horizAlign="right">
                 <Font role="font" uri="font:SystemFontFile" size="30" />
             </Label>
 

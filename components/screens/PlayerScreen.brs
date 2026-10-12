@@ -296,8 +296,7 @@ sub updateBar(position as Float)
     m.barFill.width = 1728 * fraction
     m.knob.translation = [1728 * fraction - 14, -10]
     m.elapsedLabel.text = FormatTime(Int(position))
-    m.remainingLabel.text = ""
-    if duration > 0 then m.remainingLabel.text = "-" + FormatTime(Int(duration - position))
+    m.remainingLabel.text = FormatRemainingOfTotal(Int(position), Int(duration))
 end sub
 
 ' ----------------------------------------------------------------------------

@@ -147,7 +147,7 @@ A short message confirms each change. Marking episodes watched moves the show's 
 | **Up** | Back to the progress bar |
 | **Back** | Stop and return. Your position is saved. |
 
-The controls hide after 3 seconds, or stay visible while paused. For movies with several parts, Previous/Next move between parts. Single-file movies have no Previous/Next buttons.
+Under the progress bar, the left side shows the time played and the right side shows the time left and the total length (e.g. `-23:14 / 44:00`). The controls hide after 3 seconds, or stay visible while paused. For movies with several parts, Previous/Next move between parts. Single-file movies have no Previous/Next buttons.
 
 If no drive is found, plug one in. Couchmark notices it automatically, or you can press **OK** to look again.
 

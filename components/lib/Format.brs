@@ -21,6 +21,15 @@ function FormatRemaining(totalSeconds as Integer) as String
     return (minutes \ 60).ToStr() + " h " + (minutes mod 60).ToStr() + " min"
 end function
 
+' Player time on the right of the scrubber: time left / total length.
+'   (845, 2640) -> "-29:55 / 44:00"     "" while the length is unknown
+function FormatRemainingOfTotal(position as Integer, duration as Integer) as String
+    if duration <= 0 then return ""
+    remaining = duration - position
+    if remaining < 0 then remaining = 0
+    return "-" + FormatTime(remaining) + " / " + FormatTime(duration)
+end function
+
 ' 5 -> "05"
 function pad2(value as Integer) as String
     if value < 10 then return "0" + value.ToStr()
