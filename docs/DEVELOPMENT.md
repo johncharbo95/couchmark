@@ -58,7 +58,8 @@ components/
     MovieScreen           A movie's page: Resume / Play from beginning
     ShowScreen            A show's page: Continue button, seasons | episodes
     FolderListScreen      A–Z lists of all movies or shows; the Other folder browser
-    SlideshowScreen       Dated photo/video slideshow with preloading
+    SlideshowScreen       Dated photo/video slideshow with preloading and transitions
+    SettingsScreen        Photo duration, transition, speed, clear history, version
     ResumeDialog          "Resume from … / Start over" (episodes)
     PlayerScreen          Video playback with custom controls; saves progress
     MessageScreen         Title + explanation (errors, help, placeholders)
@@ -77,7 +78,8 @@ components/
     Scan.brs              Reading folders: ScanFolders, ScanVideos, ScanShow, FindArtwork (Tasks only)
     Library.brs           Movie/show helpers: player items, badges, "Continue" target
     Progress.brs          Registry storage of playback progress + pruning
-    Settings.brs          Registry storage of user settings (photo duration, transition, speed)
+    Settings.brs          User settings: storage, choices, labels, next/previous value
+    Transitions.brs       What each transition does (start/end values per slot)
     MediaDate.brs         Date taken: EXIF, MP4/MOV mvhd (partial reads), file mtime; EXIF orientation
     NaturalSort.brs       Natural sort keys, S01E02 / 1x02 detection
     MediaTypes.brs        Supported extensions, junk-file filter, stream formats
@@ -166,7 +168,7 @@ OK on an episode with a resume point opens ResumeDialog. "Start over" restarts *
 - **movie:** the items are the movie's parts.
 - **show:** the items are *every* episode of the show in watching order, so "Up next" and the Next button carry on into the next season.
 
-The Video node's own UI is disabled (`enableUI="false"`), and the screen itself keeps focus rather than the Video node, so every key reaches `PlayerScreen.onKeyEvent`. The overlay has a title, a progress bar ("scrubber") and a button row that's built at runtime. Previous and Next only appear when there is more than one item. Focus is either on the bar (Left/Right seek 10 s) or on the buttons (Left/Right move). ↺ (`replay`) seeks −10 s and ◀◀/▶▶ (`rewind`/`fastforward`) seek ±30 s. Repeated seeks add up: each one starts from the previous target (`m.pendingSeek`), not from the playback position, which lags behind. A Timer hides the controls after 5 s unless playback is paused.
+The Video node's own UI is disabled (`enableUI="false"`), and the screen itself keeps focus rather than the Video node, so every key reaches `PlayerScreen.onKeyEvent`. The overlay has a title, a progress bar ("scrubber") and a button row that's built at runtime. Previous and Next only appear when there is more than one item. Focus is either on the bar (Left/Right seek 10 s) or on the buttons (Left/Right move). ↺ (`replay`) seeks −10 s and ◀◀/▶▶ (`rewind`/`fastforward`) seek ±30 s. Repeated seeks add up: each one starts from the previous target (`m.pendingSeek`), not from the playback position, which lags behind. A Timer hides the controls after 3 s unless playback is paused.
 
 When an item finishes and another follows, UpNextOverlay counts down 10 s. After the last item, the player closes. Playback errors (usually an unsupported codec) replace the player with a MessageScreen that shows the Video node's `errorMsg`.
 
@@ -198,6 +200,26 @@ Items are sorted by a zero-padded date key, with the natural name order as tie-b
 - **Failures:** files that fail to load or play are skipped. If every file fails, a message is shown.
 - **Looping:** after the last item, the slideshow starts over at the first.
 
+### Transitions
+
+Each slot is three nodes: **slot** (a Group clipped to the screen with `clippingRect`; moved, scaled and faded) → **inner** (a Group) → **poster**. `TransitionPlan(name, seconds, randomPick)` in `lib/Transitions.brs` returns `[start, end]` values for both slots' opacity, translation, scale and inner translation. It's pure data, so it's unit-tested.
+
+| Effect | Incoming photo | Outgoing photo |
+|---|---|---|
+| fade | opacity 0 → 1 (on top) | stays |
+| slide | from x = 1920 → 0 (on top) | stays |
+| push | from x = 1920 → 0 | x 0 → −1920 |
+| wipe | slot x −1920 → 0, inner x 1920 → 0: the clip window sweeps in while the picture stays still | stays |
+| zoom | scale 0.85 → 1, opacity 0 → 1 | stays |
+
+The old photo never goes away before the new one covers it, so there is no black frame between photos.
+
+`SlideshowScreen` has one `Animation` with eight interpolators (opacity, translation, scale and inner translation for slots A and B). It copies a plan into their `keyValue`s, puts the incoming slot on top, and starts the animation. Only after it ends (`endTransition`) is the old slot hidden, reset and reused to **preload** the next photo; preloading earlier would change the picture that is still sliding out. Skipping ahead mid-transition jumps to the end state first. After a video, or for the first photo, there's nothing to transition from, so the photo fades in over black.
+
+### Settings screen
+
+Rows are ListItems with a `key` field. Left/Right (unused by the vertical list, so they reach `SettingsScreen.onKeyEvent`) call `NextSettingValue()` and save immediately with `SettingsSave()`. The slideshow reads settings when it starts. *Clear watch history* needs OK twice, and moving to another row cancels. It calls `ProgressClearAll()`, and the home screen's Continue Watching row updates when you return.
+
 ### Registry schema
 
 Roku gives each app about 16 KB of persistent registry storage. The code for this lives in `components/lib/Progress.brs`.
@@ -206,7 +228,7 @@ Roku gives each app about 16 KB of persistent registry storage. The code for thi
 |---|---|---|---|
 | `progress` | `m` + 8 hex chars of MD5(lower-case movie folder name) | `lastUsed\|part\|parts\|pos\|dur\|watched\|title` | ✅ |
 | `progress` | `s` + 8 hex chars of MD5(lower-case show folder name) | `lastUsed\|lastEp\|watched\|partials\|title` | ✅ |
-| `settings` | `dur`, `tr`, `spd` | photo seconds, transition name, speed name | read ✅ (screen in milestone 5) |
+| `settings` | `dur`, `tr`, `spd` | photo seconds, transition name, speed name | ✅ |
 
 The `title` (folder name) lets the home screen build Continue Watching from the registry alone. It's the last field, so a title containing `|` still parses. Records saved before titles were added have no title. They still work, but they don't appear in Continue Watching until the title is played again.
 
@@ -230,6 +252,8 @@ Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay 
 | `Progress.test.brs` | registry encoding round trips, titles with `\|`, resume-point limit, newest-first list, pruning to the size budget |
 | `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text |
 | `MediaDate.test.brs` | MP4/MOV `mvhd` dates on real files (`tests/fixtures/`), fallback to the file date |
+| `Transitions.test.brs` | every effect's start/end values, wipe keeps the picture still, random never picks none |
+| `Settings.test.brs` | defaults, save/load, damaged values, next/previous with wrap-around, labels |
 
 Screens (focus, layout, playback) need a real Roku and are tested by hand. If you change a screen, also try it on a TV.
 
@@ -249,16 +273,18 @@ Directives at the top tell `tests/run.js` what to load:
 
 - `' @include path`: app code under test.
 - `' @double path`: a *test double*. Functions it defines replace the same-named functions in the included code, but only in the test build; app code doesn't change. Doubles exist for the things that need a Roku:
-  - `tests/doubles/Registry.brs`: in-memory registry, a stand-in for MD5, and a fake clock.
+  - `tests/doubles/Registry.brs`: in-memory registry sections (`progressSection()`, `settingsSection()`), a stand-in for MD5, and a fake clock.
   - `tests/doubles/Files.brs`: file reads from fixtures, a fixed file date, UTC offset 0.
 - `' @fixture path`: a file whose bytes become available to the Files double (call `loadFixtures()` first).
 
 Run one file with `npm test -- Progress`.
 
+`tests/bsconfig.json` makes the editor treat `tests/` as its own project. Otherwise it would flag every call into app code as unknown, because those files are only combined by `tests/run.js`.
+
 ### Keeping code testable
 
 - Put decisions (what to show, what to save, how to sort or parse) in `components/lib/` functions that take values and return values.
-- Touch the device (registry, files, `roDateTime` "now") only through small functions such as `progressSection()`, `md5Hex()`, `nowSeconds()`, `readBytes()`, `fileSizeOf()` and `FileModifiedTime()`. Then a double can replace them.
+- Touch the device (registry, files, `roDateTime` "now") only through small functions such as `progressSection()`, `settingsSection()`, `md5Hex()`, `nowSeconds()`, `readBytes()`, `fileSizeOf()` and `FileModifiedTime()`. Then a double can replace them.
 - A bug fix should come with a test that fails without the fix. Example: `MediaTypes.test.brs` covers the dotted episode names that once showed as "…".
 
 ### `brs` quirks
@@ -270,6 +296,7 @@ Run one file with `npm test -- Progress`.
 - `Int()` of a large Double loses precision. The app uses `LongInteger` (`&`) for MP4 times, which is exact on both.
 - `Right(s, n)` with `n = Len(s)` returns the wrong result.
 - `SortBy` doesn't sort when the sort field is a mixed-case key written in a literal (`{ sortKey: … }`). The app sorts flat items by lower-case field names.
+- Keys set with dot notation (`aa.photoSeconds = 5`) are stored in lower case. That happens on a Roku too; lookups ignore case. Compare fields one by one rather than whole objects built that way.
 
 On-device unit tests with [Rooibos](https://github.com/georgejecook/rooibos) would be the next step for testing SceneGraph components themselves.
 

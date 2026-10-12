@@ -1,0 +1,13 @@
+{
+    "$schema": "https://raw.githubusercontent.com/rokucommunity/brighterscript/master/bsconfig.schema.json",
+    "rootDir": ".",
+    "files": ["**/*.brs"],
+    "createPackage": false,
+    "stagingDir": "../out/tests-lint",
+    "diagnosticFilters": [
+        {
+            "codes": [1013],
+            "message": "Test files are combined with app code by tests/run.js, not referenced from XML."
+        }
+    ]
+}

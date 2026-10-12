@@ -3,7 +3,7 @@ Open-source media player for Roku TVs. Plays movies, shows, and photos from a US
 
 Everything runs on the TV. There is no server, account, or companion app: plug in a USB drive, open Couchmark, and press play.
 
-> **Status:** early development. Milestones 1–4 (USB detection, Netflix-style home with Continue Watching, movies and shows with resume, dated slideshows) are done. The features below marked *planned* arrive in the next milestones.
+> **Status:** all phase-1 features are in place (milestones 1–5). Expect rough edges until it has been tested on more Roku models; please report issues.
 
 ## Features
 
@@ -15,8 +15,8 @@ Everything runs on the TV. There is no server, account, or companion app: plug i
 | Shows | Show page with seasons and episodes side by side, "Continue S02E05 at 23:14", watched ✓ and partly-watched markers, and "Up next" when an episode ends. | ✅ |
 | Player | Netflix-style controls: 10-second skip, instant replay, previous/next episode, progress bar. | ✅ |
 | Other | Browse folders and play a slideshow of all photos and videos in a folder, ordered by the date they were taken. | ✅ |
-| Transitions | None, fade, slide, push, wipe, zoom, random. | planned |
-| Settings | Photo duration, transition type and speed, clear watch history. | planned |
+| Transitions | None, fade, slide, push, wipe, zoom, random, at three speeds. The next photo is preloaded, so there's never a black flash. | ✅ |
+| Settings | Photo duration, transition type and speed, clear watch history. | ✅ |
 
 ## Setting up your USB drive
 
@@ -108,7 +108,7 @@ Episode files are ordered by their `S01E02` / `1x02` code when they have one, ot
 Open **Browse → Other** to see the folders inside `Other`. In any folder that contains photos or videos, the first row is **Play slideshow**. It shows how many photos and videos the folder holds, and how many files can't be shown (for example HEIC photos). The slideshow includes the files directly in that folder, not its subfolders.
 
 - Items play **in the order they were taken**: the camera date for JPEG photos, the recording date for MP4/MOV videos, and otherwise the file's modified date.
-- Photos stay on screen for 5 seconds (adjustable in Settings), and videos play to the end. After the last item, the slideshow starts over.
+- Photos stay on screen for 5 seconds and change with a fade (both adjustable in Settings). Videos play to the end. After the last item, the slideshow starts over.
 - Portrait phone photos are rotated upright automatically.
 
 | Button | Action |
@@ -131,9 +131,20 @@ Open **Browse → Other** to see the folders inside `Other`. In any folder that 
 | **Up** | Back to the progress bar |
 | **Back** | Stop and return. Your position is saved. |
 
-The controls hide after 5 seconds, or stay visible while paused. For movies with several parts, Previous/Next move between parts. Single-file movies have no Previous/Next buttons.
+The controls hide after 3 seconds, or stay visible while paused. For movies with several parts, Previous/Next move between parts. Single-file movies have no Previous/Next buttons.
 
 If no drive is found, plug one in. Couchmark notices it automatically, or you can press **OK** to look again.
+
+### Settings
+
+Open **Browse → Settings**. Use Up/Down to choose a setting and Left/Right (or OK) to change it. Changes are saved immediately.
+
+| Setting | Choices |
+|---|---|
+| Photo duration | 3, 5, 8, 10, 15 or 30 seconds |
+| Transition | None, Fade, Slide, Push, Wipe, Zoom, Random |
+| Transition speed | Slow (1.5 s), Normal (0.8 s), Fast (0.4 s) |
+| Clear watch history | Press OK twice. Forgets all resume points and ✓ marks; your files are not touched. |
 
 ## Known limitations
 

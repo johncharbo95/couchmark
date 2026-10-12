@@ -10,7 +10,8 @@
 '
 ' FLOW
 '   MediaDateTask lists the folder and sorts by date taken → showItem(0).
-'   Photo: shown for the "photo duration" setting, then the next item.
+'   Photo: shown for the "photo duration" setting, then the next item,
+'          arriving with the chosen transition (lib/Transitions.brs).
 '   Video: plays to the end (or until Right), then the next item.
 '   After the last item the slideshow starts again from the first.
 ' ============================================================================
@@ -27,10 +28,12 @@ sub init()
     m.infoTimer = m.top.FindNode("infoTimer")
 
     ' The two image slots. "path" = what the slot's poster holds.
-    m.slots = [
-        { group: m.top.FindNode("slotA"), poster: m.top.FindNode("posterA"), path: "" }
-        { group: m.top.FindNode("slotB"), poster: m.top.FindNode("posterB"), path: "" }
-    ]
+    ' Each slot also knows the interpolators that animate it.
+    m.slots = [slotNodes("A"), slotNodes("B")]
+    m.stage = m.top.FindNode("stage")
+    m.transition = m.top.FindNode("transition")
+    m.transition.ObserveField("state", "onTransitionState")
+    m.transitioning = false
     m.front = 0             ' slot currently on screen
     m.waitingSlot = -1      ' slot we're waiting on to finish loading
 
@@ -87,6 +90,7 @@ end sub
 ' ----------------------------------------------------------------------------
 
 sub showItem(index as Integer)
+    finishTransition()
     m.index = index
     m.photoTimer.control = "stop"
     m.waitingSlot = -1
@@ -153,17 +157,93 @@ sub onPosterStatus(event as Object)
     end if
 end sub
 
+' Brings the loaded slot on screen with the chosen transition.
 sub revealPhoto(slotIndex as Integer)
     m.waitingSlot = -1
     m.failures = 0
+    incoming = m.slots[slotIndex]
+    outgoing = m.slots[1 - slotIndex]
+
+    ' After a video the old photo is stale: hide it and fade in over black.
+    if m.video.visible then outgoing.group.visible = false
     stopVideo()
 
-    ' Milestone 5 replaces this cut with the chosen transition.
-    m.slots[slotIndex].group.visible = true
-    m.slots[1 - slotIndex].group.visible = false
+    plan = TransitionPlan(m.settings.transition, TransitionSeconds(m.settings.speed), Rnd(5) - 1)
+    if not outgoing.group.visible and plan.duration > 0 then plan = TransitionPlan("fade", plan.duration, 0)
+
+    ' Draw the incoming slot on top of the outgoing one.
+    m.stage.RemoveChild(incoming.group)
+    m.stage.AppendChild(incoming.group)
     m.front = slotIndex
 
+    if plan.duration = 0
+        incoming.group.visible = true
+        endTransition()
+    else
+        setKeys(incoming, plan.incoming)
+        setKeys(outgoing, plan.outgoing)
+        applyValues(incoming, plan.incoming, 0)   ' start position before showing
+        incoming.group.visible = true
+        m.transition.duration = plan.duration
+        m.transitioning = true
+        m.transition.control = "start"
+    end if
+
     startPhotoTimer()
+end sub
+
+' ----------------------------------------------------------------------------
+' Transitions
+' ----------------------------------------------------------------------------
+
+function slotNodes(letter as String) as Object
+    return {
+        group: m.top.FindNode("slot" + letter)
+        inner: m.top.FindNode("inner" + letter)
+        poster: m.top.FindNode("poster" + letter)
+        path: ""
+        opacityAnim: m.top.FindNode(LCase(letter) + "Opacity")
+        translationAnim: m.top.FindNode(LCase(letter) + "Translation")
+        scaleAnim: m.top.FindNode(LCase(letter) + "Scale")
+        innerAnim: m.top.FindNode(LCase(letter) + "Inner")
+    }
+end function
+
+' Copies a plan's [start, end] values into the slot's interpolators.
+sub setKeys(slot as Object, values as Object)
+    slot.opacityAnim.keyValue = values.opacity
+    slot.translationAnim.keyValue = values.translation
+    slot.scaleAnim.keyValue = values.scale
+    slot.innerAnim.keyValue = values.inner
+end sub
+
+' Sets a slot directly to a plan's start (which = 0) or end (which = 1).
+sub applyValues(slot as Object, values as Object, which as Integer)
+    slot.group.opacity = values.opacity[which]
+    slot.group.translation = values.translation[which]
+    slot.group.scale = values.scale[which]
+    slot.inner.translation = values.inner[which]
+end sub
+
+sub onTransitionState()
+    if m.transition.state = "stopped" and m.transitioning then endTransition()
+end sub
+
+' Skipping ahead mid-transition: jump to its end state.
+sub finishTransition()
+    if not m.transitioning then return
+    m.transition.control = "stop"
+    endTransition()
+end sub
+
+' The incoming photo is fully on screen: hide and reset the old slot, then
+' it's free to preload the next photo.
+sub endTransition()
+    m.transitioning = false
+    applyValues(m.slots[m.front], stillSlot(), 1)
+    outgoing = m.slots[1 - m.front]
+    outgoing.group.visible = false
+    applyValues(outgoing, stillSlot(), 1)
     preloadNext()
 end sub
 

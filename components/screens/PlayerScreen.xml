@@ -71,6 +71,6 @@
         <UpNextOverlay id="upNext" visible="false" />
 
         <!-- Hides the controls after a few seconds without key presses. -->
-        <Timer id="hideTimer" duration="5" repeat="false" />
+        <Timer id="hideTimer" duration="3" repeat="false" />
     </children>
 </component>

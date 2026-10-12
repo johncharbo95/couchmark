@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SettingsScreen — slideshow options, clear watch history, about.
+
+    Left / Right (or OK) changes the highlighted setting; changes are saved
+    immediately. "Clear watch history" needs OK twice.
+-->
+<component name="SettingsScreen" extends="BaseScreen">
+    <script type="text/brightscript" uri="SettingsScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Settings.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Transitions.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
+
+    <children>
+        <Label text="Settings" translation="[155, 90]">
+            <Font role="font" uri="font:BoldSystemFontFile" size="60" />
+        </Label>
+
+        <MarkupList
+            id="list"
+            translation="[155, 210]"
+            itemComponentName="ListItem"
+            itemSize="[1610, 84]"
+            itemSpacing="[0, 8]"
+            numRows="6"
+            drawFocusFeedback="false"
+            vertFocusAnimationStyle="floatingFocus" />
+
+        <Label id="hint" translation="[155, 820]" width="1610" wrap="true" color="0x8A96A3FF">
+            <Font role="font" uri="font:SystemFontFile" size="30" />
+        </Label>
+    </children>
+</component>

@@ -8,8 +8,12 @@
 
     Two image "slots" take turns: while one is on screen, the next photo
     loads into the hidden one, so changing photos never flashes black.
-    Each slot is a Group (moved/faded by transitions) holding a Poster
-    (rotated for EXIF orientation).
+    Each slot is:
+      slot  (Group, clipped to the screen; moved / scaled / faded)
+        inner (Group; moved the opposite way for the wipe effect)
+          poster (rotated for EXIF orientation)
+    The "transition" Animation animates both slots; lib/Transitions.brs
+    decides the start/end values.
 -->
 <component name="SlideshowScreen" extends="BaseScreen">
     <interface>
@@ -19,17 +23,37 @@
 
     <script type="text/brightscript" uri="SlideshowScreen.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Settings.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Transitions.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />
 
     <children>
         <Rectangle width="1920" height="1080" color="0x000000FF" />
 
-        <Group id="slotA" visible="false">
-            <Poster id="posterA" width="1920" height="1080" loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
+        <Group id="stage">
+            <Group id="slotA" visible="false" clippingRect="[0, 0, 1920, 1080]" scaleRotateCenter="[960, 540]">
+                <Group id="innerA">
+                    <Poster id="posterA" width="1920" height="1080" loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
+                </Group>
+            </Group>
+            <Group id="slotB" visible="false" clippingRect="[0, 0, 1920, 1080]" scaleRotateCenter="[960, 540]">
+                <Group id="innerB">
+                    <Poster id="posterB" width="1920" height="1080" loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
+                </Group>
+            </Group>
         </Group>
-        <Group id="slotB" visible="false">
-            <Poster id="posterB" width="1920" height="1080" loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
-        </Group>
+
+        <!-- One interpolator per animated field; keyValues are set per
+             transition in SlideshowScreen.brs. -->
+        <Animation id="transition" duration="0.8" easeFunction="inOutCubic" repeat="false">
+            <FloatFieldInterpolator id="aOpacity" fieldToInterp="slotA.opacity" key="[0.0, 1.0]" />
+            <Vector2DFieldInterpolator id="aTranslation" fieldToInterp="slotA.translation" key="[0.0, 1.0]" />
+            <Vector2DFieldInterpolator id="aScale" fieldToInterp="slotA.scale" key="[0.0, 1.0]" />
+            <Vector2DFieldInterpolator id="aInner" fieldToInterp="innerA.translation" key="[0.0, 1.0]" />
+            <FloatFieldInterpolator id="bOpacity" fieldToInterp="slotB.opacity" key="[0.0, 1.0]" />
+            <Vector2DFieldInterpolator id="bTranslation" fieldToInterp="slotB.translation" key="[0.0, 1.0]" />
+            <Vector2DFieldInterpolator id="bScale" fieldToInterp="slotB.scale" key="[0.0, 1.0]" />
+            <Vector2DFieldInterpolator id="bInner" fieldToInterp="innerB.translation" key="[0.0, 1.0]" />
+        </Animation>
 
         <Video id="video" width="1920" height="1080" enableUI="false" visible="false" />
 

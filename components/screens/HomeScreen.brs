@@ -211,11 +211,7 @@ sub openBrowse(tile as Object, id as String)
         m.top.navigate = { screen: "FolderListScreen", fields: { title: "Shows", kind: "shows", paths: roots.shows } }
     else if id = "other"
         m.top.navigate = { screen: "FolderListScreen", fields: { title: "Other", kind: "other", paths: roots.other } }
-    else
-        ' The settings screen arrives in milestone 5.
-        m.top.navigate = {
-            screen: "MessageScreen"
-            fields: { title: tile.title, message: "Coming in milestone 5." }
-        }
+    else if id = "settings"
+        m.top.navigate = { screen: "SettingsScreen" }
     end if
 end sub

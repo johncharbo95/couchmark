@@ -1,23 +1,40 @@
 ' ============================================================================
-' Registry.brs (test double) — replaces the parts of lib/Progress.brs that
-' need a real Roku: the registry, MD5 and the clock.
+' Registry.brs (test double) — replaces the parts of lib/Progress.brs and
+' lib/Settings.brs that need a real Roku: the registry, MD5 and the clock.
 '
-'   GetGlobalAA().registry  the fake registry's contents (key -> value)
+'   GetGlobalAA().registry  fake registry: section name -> { key: value }
 '   GetGlobalAA().clock     seconds returned by nowSeconds(); increases by
 '                           1 on every call so "most recent" is well defined
 ' ============================================================================
 
 function progressSection() as Object
+    return fakeSection("progress")
+end function
+
+function settingsSection() as Object
+    return fakeSection("settings")
+end function
+
+' An object with the same methods as roRegistrySection, backed by an
+' associative array.
+function fakeSection(name as String) as Object
     g = GetGlobalAA()
     if g.registry = invalid then g.registry = {}
+    if not g.registry.DoesExist(name) then g.registry[name] = {}
     return {
-        Exists: function(key) : return GetGlobalAA().registry.DoesExist(key) : end function
-        Read: function(key) : return GetGlobalAA().registry[key] : end function
-        Write: function(key, value) : GetGlobalAA().registry[key] = value : end function
-        Delete: function(key) : GetGlobalAA().registry.Delete(key) : end function
-        GetKeyList: function() : return GetGlobalAA().registry.Keys() : end function
+        data: g.registry[name]
+        Exists: function(key) : return m.data.DoesExist(key) : end function
+        Read: function(key) : return m.data[key] : end function
+        Write: function(key, value) : m.data[key] = value : end function
+        Delete: function(key) : m.data.Delete(key) : end function
+        GetKeyList: function() : return m.data.Keys() : end function
         Flush: function() : return true : end function
     }
+end function
+
+' The contents of a fake section (key -> value).
+function fakeRegistry(name as String) as Object
+    return fakeSection(name).data
 end function
 
 ' Not MD5: a small deterministic hash so different texts get different keys.
@@ -42,7 +59,7 @@ function nowSeconds() as Integer
     return g.clock
 end function
 
-' Starts every test with an empty registry.
+' Starts a test with an empty registry.
 sub resetRegistry()
     GetGlobalAA().registry = {}
 end sub

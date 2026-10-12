@@ -77,7 +77,7 @@ sub testPruning()
         ProgressSaveMovie(longName + " " + i.ToStr(), { part: 0, parts: 1, pos: 100, dur: 200, watched: false })
     end for
     total = 0
-    registry = GetGlobalAA().registry
+    registry = fakeRegistry("progress")
     for each key in registry
         total = total + Len(key) + Len(registry[key])
     end for
@@ -89,5 +89,5 @@ end sub
 sub testClearAll()
     ProgressSaveMovie("X", { part: 0, parts: 1, pos: 100, dur: 200, watched: false })
     ProgressClearAll()
-    assertEqual(GetGlobalAA().registry.Count(), 0, "clear watch history empties the section")
+    assertEqual(fakeRegistry("progress").Count(), 0, "clear watch history empties the section")
 end sub
