@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    UsbScanTask — finds USB drives and their Movies / Shows / Other folders.
+    Runs on a background thread. Start it with  task.control = "run"
+    and observe "result".
+-->
+<component name="UsbScanTask" extends="Task">
+    <interface>
+        <!-- { volumes: [...], roots: { movies: [...], shows: [...], other: [...] } } -->
+        <field id="result" type="assocarray" />
+    </interface>
+    <script type="text/brightscript" uri="UsbScanTask.brs" />
+</component>

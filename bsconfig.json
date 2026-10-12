@@ -1,0 +1,12 @@
+{
+    "$schema": "https://raw.githubusercontent.com/rokucommunity/brighterscript/master/bsconfig.schema.json",
+    "rootDir": ".",
+    "files": [
+        "manifest",
+        "source/**/*",
+        "components/**/*",
+        "images/**/*"
+    ],
+    "createPackage": false,
+    "diagnosticFilters": []
+}

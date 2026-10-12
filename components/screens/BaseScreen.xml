@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    BaseScreen — every screen extends this.
+
+    To open another screen, a screen sets:
+        m.top.navigate = { screen: "MessageScreen", fields: { title: "Hi" } }
+    MainScene observes this field and pushes the new screen.
+    Pressing Back is handled by MainScene (it pops the top screen).
+-->
+<component name="BaseScreen" extends="Group">
+    <interface>
+        <field id="navigate" type="assocarray" alwaysNotify="true" />
+    </interface>
+</component>

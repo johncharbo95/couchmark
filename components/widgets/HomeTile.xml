@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    HomeTile — draws one tile of the home grid.
+    MarkupGrid creates one per item and sets these two fields for us:
+      itemContent  – the ContentNode for this tile (title, description, enabled)
+      focusPercent – 0.0 (not focused) … 1.0 (focused), animated as focus moves
+-->
+<component name="HomeTile" extends="Group">
+    <interface>
+        <field id="itemContent" type="node" onChange="onContentSet" />
+        <field id="focusPercent" type="float" onChange="onFocusPercentChange" />
+    </interface>
+
+    <script type="text/brightscript" uri="HomeTile.brs" />
+
+    <children>
+        <Group id="body" scaleRotateCenter="[190, 190]">
+            <Rectangle id="card" width="380" height="380" color="0x1E252DFF" />
+            <Rectangle id="accent" width="380" height="8" color="0x3D7EFFFF" opacity="0" />
+            <Label id="title" translation="[30, 220]" width="320">
+                <Font role="font" uri="font:BoldSystemFontFile" size="48" />
+            </Label>
+            <Label id="subtitle" translation="[30, 290]" width="320" wrap="true" color="0x8A96A3FF">
+                <Font role="font" uri="font:SystemFontFile" size="26" />
+            </Label>
+        </Group>
+    </children>
+</component>

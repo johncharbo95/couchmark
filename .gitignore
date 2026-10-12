@@ -1,0 +1,15 @@
+# Local secrets (Roku IP + developer password). Copy .env.example to .env.
+.env
+
+# Build / deploy output from the BrightScript extension and brighterscript
+out/
+.roku-deploy-staging/
+*.zip
+
+# Tooling
+node_modules/
+
+# OS clutter
+.DS_Store
+Thumbs.db
+desktop.ini

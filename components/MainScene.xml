@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    MainScene — the root of the UI.
+
+    It owns a *stack* of screens: opening a screen pushes it on top,
+    pressing Back pops it off and reveals the previous one.
+    Screens ask to open other screens by setting their "navigate" field
+    (see BaseScreen.xml); MainScene does the actual work.
+-->
+<component name="MainScene" extends="Scene">
+    <interface>
+        <!-- Set by main.brs whenever a USB drive is added or removed. -->
+        <field id="volumesChanged" type="boolean" alwaysNotify="true" onChange="onVolumesChanged" />
+    </interface>
+
+    <script type="text/brightscript" uri="MainScene.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Text.brs" />
+
+    <children>
+        <Rectangle id="background" width="1920" height="1080" color="0x101418FF" />
+
+        <!-- Screens are added here by pushScreen(). -->
+        <Group id="screenLayer" />
+
+        <!-- Drawn above everything while a Task is running. -->
+        <LoadingOverlay id="loading" visible="false" />
+
+        <!-- Short delay after a USB event so the drive has time to mount. -->
+        <Timer id="rescanTimer" duration="1.5" repeat="false" />
+    </children>
+</component>

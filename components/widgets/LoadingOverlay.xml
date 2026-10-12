@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    LoadingOverlay — dims the screen and shows a spinner + message.
+    Show it with  overlay.visible = true  while a Task node is working.
+-->
+<component name="LoadingOverlay" extends="Group">
+    <interface>
+        <field id="message" type="string" alias="messageLabel.text" />
+    </interface>
+
+    <script type="text/brightscript" uri="LoadingOverlay.brs" />
+
+    <children>
+        <Rectangle width="1920" height="1080" color="0x000000B0" />
+        <BusySpinner id="spinner" translation="[912, 452]" />
+        <Label id="messageLabel" translation="[0, 600]" width="1920" horizAlign="center" color="0xC8D0D8FF">
+            <Font role="font" uri="font:SystemFontFile" size="34" />
+        </Label>
+    </children>
+</component>

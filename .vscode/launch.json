@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "brightscript",
+            "request": "launch",
+            "name": "Couchmark: deploy & debug on Roku",
+            // Credentials come from .env (git-ignored). See .env.example.
+            "envFile": "${workspaceFolder}/.env",
+            "host": "${env:ROKU_HOST}",
+            "password": "${env:ROKU_PASSWORD}",
+            "rootDir": "${workspaceFolder}",
+            // Only these files are zipped and sideloaded to the TV.
+            "files": [
+                "manifest",
+                "source/**/*",
+                "components/**/*",
+                "images/**/*"
+            ],
+            "stopOnEntry": false
+        }
+    ]
+}
