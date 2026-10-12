@@ -104,3 +104,88 @@ $g.DrawLines($pen, [System.Drawing.PointF[]]@(
 $bmp.Save((Join-Path $out 'check.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $bmp.Dispose()
 Write-Host 'wrote check.png (44 x 44)'
+
+# ----------------------------------------------------------------------------
+# UI images: player icons, focus circle, progress knob, background fade
+# ----------------------------------------------------------------------------
+
+function New-Transparent([int]$w, [int]$h) {
+    $bmp = New-Object System.Drawing.Bitmap $w, $h
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode = 'AntiAlias'
+    $g.TextRenderingHint = 'AntiAliasGridFit'
+    $g.Clear([System.Drawing.Color]::Transparent)
+    return $bmp, $g
+}
+
+function Save-Image($bmp, $g, [string]$name) {
+    $bmp.Save((Join-Path $out $name), [System.Drawing.Imaging.ImageFormat]::Png)
+    $g.Dispose(); $bmp.Dispose()
+    Write-Host "wrote $name"
+}
+
+function Pt([float]$x, [float]$y) { return New-Object System.Drawing.PointF $x, $y }
+
+$whiteBrush = New-Object System.Drawing.SolidBrush $white
+
+# Play / pause
+$bmp, $g = New-Transparent 64 64
+$g.FillPolygon($whiteBrush, [System.Drawing.PointF[]]@((Pt 18 10), (Pt 18 54), (Pt 54 32)))
+Save-Image $bmp $g 'ic_play.png'
+
+$bmp, $g = New-Transparent 64 64
+$g.FillRectangle($whiteBrush, 14, 10, 12, 44)
+$g.FillRectangle($whiteBrush, 38, 10, 12, 44)
+Save-Image $bmp $g 'ic_pause.png'
+
+# Previous / next (bar + triangle)
+$bmp, $g = New-Transparent 64 64
+$g.FillRectangle($whiteBrush, 12, 12, 8, 40)
+$g.FillPolygon($whiteBrush, [System.Drawing.PointF[]]@((Pt 52 12), (Pt 52 52), (Pt 22 32)))
+Save-Image $bmp $g 'ic_prev.png'
+
+$bmp, $g = New-Transparent 64 64
+$g.FillRectangle($whiteBrush, 44, 12, 8, 40)
+$g.FillPolygon($whiteBrush, [System.Drawing.PointF[]]@((Pt 12 12), (Pt 12 52), (Pt 42 32)))
+Save-Image $bmp $g 'ic_next.png'
+
+# Back 10 / forward 10: circular arrow with "10" inside
+function Draw-Circular([bool]$forward, [string]$name) {
+    $bmp, $g = New-Transparent 64 64
+    $pen = New-Object System.Drawing.Pen $white, 5
+    if ($forward) {
+        $g.DrawArc($pen, 8, 8, 48, 48, 270, -290)
+        $g.FillPolygon($whiteBrush, [System.Drawing.PointF[]]@((Pt 44 8), (Pt 30 0), (Pt 30 16)))
+    } else {
+        $g.DrawArc($pen, 8, 8, 48, 48, 270, 290)
+        $g.FillPolygon($whiteBrush, [System.Drawing.PointF[]]@((Pt 20 8), (Pt 34 0), (Pt 34 16)))
+    }
+    $font = New-Object System.Drawing.Font 'Segoe UI', 17, ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
+    $fmt = New-Object System.Drawing.StringFormat
+    $fmt.Alignment = 'Center'; $fmt.LineAlignment = 'Center'
+    $g.DrawString('10', $font, $whiteBrush, (New-Object System.Drawing.RectangleF 8, 10, 48, 46), $fmt)
+    Save-Image $bmp $g $name
+}
+Draw-Circular $false 'ic_back10.png'
+Draw-Circular $true  'ic_fwd10.png'
+
+# Focus circle behind the selected player button, and the progress knob
+$bmp, $g = New-Transparent 112 112
+$g.FillEllipse((New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(70, 255, 255, 255))), 0, 0, 111, 111)
+Save-Image $bmp $g 'btn_focus.png'
+
+$bmp, $g = New-Transparent 28 28
+$g.FillEllipse($whiteBrush, 1, 1, 26, 26)
+Save-Image $bmp $g 'dot.png'
+
+# Background fade: solid app background on the left and bottom, fading to
+# transparent towards the top-right, so text stays readable over artwork.
+# Drawn at half size; stretched to 1920x1080 on screen.
+$bmp, $g = New-Transparent 960 540
+$solid = [System.Drawing.Color]::FromArgb(255, 16, 20, 24)
+$clear = [System.Drawing.Color]::FromArgb(0, 16, 20, 24)
+$left = New-Object System.Drawing.Drawing2D.LinearGradientBrush (New-Object System.Drawing.Rectangle 0, 0, 620, 540), $solid, $clear, 0.0
+$g.FillRectangle($left, 0, 0, 620, 540)
+$bottom = New-Object System.Drawing.Drawing2D.LinearGradientBrush (New-Object System.Drawing.Rectangle 0, 240, 960, 300), $clear, $solid, 90.0
+$g.FillRectangle($bottom, 0, 241, 960, 299)
+Save-Image $bmp $g 'fade.png'

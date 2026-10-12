@@ -52,26 +52,32 @@ components/
   MainScene.xml/.brs      Root scene: screen stack, USB scanning, Back key
   screens/                Full-screen pages (all extend BaseScreen)
     BaseScreen.xml        Declares the "navigate" field
-    HomeScreen            Movies / Shows / Other / Settings tiles
+    HomeScreen            Netflix-style home: hero + rows (Continue Watching, Shows, Movies, Browse)
+    MovieScreen           A movie's page: Resume / Play from beginning
+    ShowScreen            A show's page: Continue button, seasons | episodes
+    FolderListScreen      A–Z lists of all movies or shows
+    ResumeDialog          "Resume from … / Start over" (episodes)
+    PlayerScreen          Video playback with custom controls; saves progress
     MessageScreen         Title + explanation (errors, help, placeholders)
-    FolderListScreen      Scrolling list of folders (Movies) with ✓ / progress badges
-    ResumeDialog          "Resume from … / Start over"
-    PlayerScreen          Full-screen Video node, multi-part playback, saves progress
   tasks/                  Background work (Task nodes)
     UsbScanTask           Finds ext*: volumes and their Movies/Shows/Other folders
-    FolderScanTask        Lists subfolders or video files, merged across drives, natural-sorted
+    HomeScanTask          Home rows: library + artwork, Continue Watching tiles
+    FolderScanTask        Lists subfolders or video files (+ a movie's artwork)
+    ShowScanTask          Reads one show's seasons + episodes (+ artwork)
   widgets/                Reusable pieces
-    HomeTile              One home tile (MarkupGrid item component)
-    ListItem              One list row with title and badge (MarkupList item component)
+    MediaTile             16:9 tile with artwork, progress bar, ✓ (RowList item)
+    ListItem              List row with title, detail text, badge (MarkupList item)
     LoadingOverlay        Dimmed background + spinner while a Task runs
     UpNextOverlay         "Up next" card with a 10 s countdown
   lib/                    Plain BrightScript helpers included via <script>
-    Text.brs              Shared user-facing strings
+    Scan.brs              Reading folders: ScanFolders, ScanVideos, ScanShow, FindArtwork (Tasks only)
+    Library.brs           Movie/show helpers: player items, badges, "Continue" target
+    Progress.brs          Registry storage of playback progress + pruning
     NaturalSort.brs       Natural sort keys, S01E02 / 1x02 detection
     MediaTypes.brs        Supported extensions, junk-file filter, stream formats
-    Format.brs            Time formatting (1:02:14)
-    Progress.brs          Registry storage of playback progress + pruning
-images/                   Icons, splash screens, spinner, ✓ badge
+    Format.brs            Time formatting (1:02:14, "23 min")
+    Text.brs              Shared user-facing strings
+images/                   Icons, splash screens, player icons, fade, ✓ badge
 tools/                    Dev scripts (not packaged)
 docs/                     Documentation (not packaged)
 ```
@@ -91,9 +97,9 @@ m.top.navigate = { action: "back" }     ' close me
 m.top.navigate = { action: "rescan" }   ' rescan USB drives
 ```
 
-MainScene creates the node, applies `fields` with `SetFields`, hides the previous screen, and focuses the new one. `replace` is used by ResumeDialog so Back from the player returns to the list, not the dialog. **Back** pops the top screen. On the first screen, Back is left unhandled so Roku exits the app.
+MainScene creates the node, applies `fields` with `SetFields`, hides the previous screen, and focuses the new one. `replace` is used by ResumeDialog so Back from the player returns to the show page, not the dialog. **Back** pops the top screen. On the home screen, Back is left unhandled so Roku exits the app.
 
-When a screen receives focus, it passes focus on to its main list or grid (see `onFocusedChildChange` in `HomeScreen.brs`). The list remembers its position, so returning to a screen keeps your place.
+Fields are applied *after* a component's `init()`, so screens start their work (scans, playback) the first time they receive focus. When a screen receives focus, it passes focus on to its list, grid or button. Screens that show progress also watch their own `visible` field and refresh when they reappear after the player closes.
 
 ### USB library
 
@@ -114,19 +120,56 @@ When a screen receives focus, it passes focus on to its main list or grid (see `
 
 ### Folder scanning and sorting
 
-`FolderScanTask` lists folders on demand rather than scanning the whole drive up front. Opening Movies lists only the movie folders. A movie's video files ("parts") are listed when you select it. When several drives are attached, entries from all of them are merged, and if the same folder name exists on two drives, the first drive wins. Junk files (`.*`, `$*`, `Thumbs.db`, …) and unsupported extensions are skipped.
+All drive access lives in `lib/Scan.brs` and runs inside Task nodes:
 
-Sorting uses `NaturalSortKey()`, which zero-pads every run of digits so a plain alphabetical sort gives "2" before "10". With `episodeAware`, names containing `S01E02` or `1x02` sort by season and episode first.
+- `ScanFolders(paths)`: subfolders, merged by name across drives (`paths` keeps every location).
+- `ScanVideos(paths, episodeAware)`: playable video files.
+- `ScanShow(paths)`: seasons and episodes, flattened into one list of player items plus each season's slice of it (`first`, `count`). Videos directly in the show folder become a season called "Episodes".
+- `FindArtwork(paths)`: the first `fanart|landscape|backdrop|poster|folder|cover|thumb` `.jpg/.jpeg/.png` found in the folder.
 
-### Movie playback
+Junk files (`.*`, `$*`, `Thumbs.db`, …) and unsupported extensions are skipped. Sorting uses `NaturalSortKey()`, which zero-pads every run of digits so a plain alphabetical sort gives "2" before "10". With `episodeAware`, names containing `S01E02` or `1x02` sort by season and episode first.
 
-1. FolderListScreen → OK on a movie → FolderScanTask lists its parts.
-2. If saved progress exists → ResumeDialog → PlayerScreen (using `replace`). Otherwise the movie goes straight to PlayerScreen.
-3. PlayerScreen plays one part at a time with a Video node (`content.playStart` = resume point). When a part finishes, UpNextOverlay counts down to the next part. After the last part, the player closes.
-4. Progress is saved every 10 s and on Back. Past 90% of the last part, the movie is marked watched (✓) and its resume point is cleared. Under 15 s into part 1, nothing is saved.
-5. Returning to the list (its `visible` becomes true) refreshes the badges.
+### Home screen
 
-Playback errors (usually an unsupported codec) replace the player with a MessageScreen that shows the Video node's `errorMsg`.
+`HomeScreen` uses a `RowList` of `MediaTile`s and two `HomeScanTask` runs:
+
+1. **`library`** (once): every show and movie folder with its artwork.
+2. **`continue`** (every time the home screen reappears): `ProgressListRecent()` returns the saved records, newest first. For each one, the task finds the title's folder again, scans it, and builds a tile with **ready-made PlayerScreen fields**. That's why one OK press starts playback with no further scanning. Movies are included if they have a resume point. Shows are included if `ContinueTarget()` finds something to watch. The row holds at most 12 tiles.
+
+Each tile's `action` field says what OK does (`play`, `show`, `movie` or `browse`). The hero area at the top shows the focused tile's title, subtitle and artwork, faded into the background with `images/fade.png`. When rows are rebuilt, the focus is restored by row key and column.
+
+### Movie and show pages
+
+**MovieScreen** lists the movie's parts and offers *Resume* + *Play from beginning*, or just *Play*.
+
+**ShowScreen** has three focus areas: the Continue button, the season list (left) and the episode list (right). Lists don't handle a key they can't use (for example Up on the first row), so the key reaches `ShowScreen.onKeyEvent`, which moves to another area. Highlighting a season refills the episode list. The Continue button text comes from `ContinueTarget()` in `Library.brs`:
+
+- The last-played episode has a resume point → **Continue S02E05 at 23:14**
+- The last-played episode was finished → **Next: S02E06**
+- It was played but stopped within 15 s → **Continue S02E06**
+- The show was never played, or the last-played episode is gone → **Start watching S01E01**, or **Next:** the first unwatched episode
+- Everything has been watched → no button
+
+OK on an episode with a resume point opens ResumeDialog. "Start over" restarts *that* episode (`restartIndex`).
+
+### The player
+
+`PlayerScreen` gets a list of **items** (`{ url, label, id }`) and a `kind`:
+
+- **movie:** the items are the movie's parts.
+- **show:** the items are *every* episode of the show in watching order, so "Up next" and the Next button carry on into the next season.
+
+The Video node's own UI is disabled (`enableUI="false"`), and the screen itself keeps focus rather than the Video node, so every key reaches `PlayerScreen.onKeyEvent`. The overlay has a title, a progress bar ("scrubber") and a button row that's built at runtime. Previous and Next only appear when there is more than one item. Focus is either on the bar (Left/Right seek 10 s) or on the buttons (Left/Right move). ↺ (`replay`) seeks −10 s and ◀◀/▶▶ (`rewind`/`fastforward`) seek ±30 s. Repeated seeks add up: each one starts from the previous target (`m.pendingSeek`), not from the playback position, which lags behind. A Timer hides the controls after 5 s unless playback is paused.
+
+When an item finishes and another follows, UpNextOverlay counts down 10 s. After the last item, the player closes. Playback errors (usually an unsupported codec) replace the player with a MessageScreen that shows the Video node's `errorMsg`.
+
+Progress is saved every 10 s, on Back, and before Previous/Next. The rules differ slightly by kind:
+
+| | Movie | Episode |
+|---|---|---|
+| Past 90% (or finished) | last part: watched ✓, resume point cleared; earlier part: resume at the next part | watched ✓, resume point cleared |
+| 15 s or more, under 90% | resume point saved (part + position) | resume point saved, becomes "last played" |
+| Under 15 s | nothing saved (an old resume point on part 1 is cleared) | becomes "last played", no resume point |
 
 ### Planned (later milestones)
 
@@ -138,13 +181,25 @@ Roku gives each app about 16 KB of persistent registry storage. The code for thi
 
 | Section | Key | Value | Status |
 |---|---|---|---|
-| `progress` | `m` + 8 hex chars of MD5(lower-case movie folder name) | `lastUsed\|part\|parts\|pos\|dur\|watched` | ✅ |
-| `progress` | `s` + 8 hex chars of MD5(show folder) | `lastUsed\|lastEpHash\|posSec\|watchedHashes\|partials` | planned |
+| `progress` | `m` + 8 hex chars of MD5(lower-case movie folder name) | `lastUsed\|part\|parts\|pos\|dur\|watched\|title` | ✅ |
+| `progress` | `s` + 8 hex chars of MD5(lower-case show folder name) | `lastUsed\|lastEp\|watched\|partials\|title` | ✅ |
 | `settings` | `dur`, `tr`, `spd` | photo seconds, transition name, speed name | planned |
 
-Movie example: `1760270000|0|1|3734|7200|0` means part 1 of 1, resume at 1:02:14, part length 2:00:00, not yet watched. `part` is 0-based, and `lastUsed` is in seconds since 1970.
+The `title` (folder name) lets the home screen build Continue Watching from the registry alone. It's the last field, so a title containing `|` still parses. Records saved before titles were added have no title. They still work, but they don't appear in Continue Watching until the title is played again.
 
-Episode hashes are 6 hex characters of MD5 of the episode's path relative to the show folder. When the total size passes about 13 KB, the entries with the oldest `lastUsed` are pruned first.
+Movie example: `1760270000|0|1|3734|7200|0|The Matrix` means part 1 of 1, resume at 1:02:14, part length 2:00:00, not yet watched. `part` is 0-based, and `lastUsed` is in seconds since 1970.
+
+Show example: `1760270000|0b12ef|77ac10,0b12ef|c4d2e1:612:2580|The Office`. Here the last episode played is `0b12ef`, two episodes are watched, and `c4d2e1` has a resume point at 10:12 of 43:00. At most 10 resume points are kept per show, most recent first.
+
+An episode id is 6 hex characters of MD5 of the episode's path relative to the show folder (`Season 2/S02E05.mkv`, lower-cased), so adding or renaming *other* files doesn't affect it. When the total size passes about 13 KB, the entries with the oldest `lastUsed` are pruned first.
+
+## Testing logic off the TV
+
+Pure logic (sorting, `ContinueTarget`, time formatting, registry encoding) can be run on a PC with [`brs`](https://github.com/sjbarag/brs), an off-device BrightScript interpreter: `npx brs test.brs components/lib/NaturalSort.brs …`. It has gaps, so treat a failure there as a hint rather than proof:
+
+- No `roRegistrySection` or `roByteArray.FromAsciiString`. Stub `progressSection()` and `md5Hex()` when testing `Progress.brs`.
+- `Right(s, n)` with `n = Len(s)` is wrong.
+- `SortBy` doesn't sort when the sort field is a mixed-case key written in a literal (`{ sortKey: … }`). The app sorts by lower-case field names where that matters, so both `brs` and Roku agree.
 
 ## Debugging tips
 

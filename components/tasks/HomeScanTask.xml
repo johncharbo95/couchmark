@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    HomeScanTask — gathers what the home screen shows.
+
+    Input:
+      roots – m.global.library.roots ({ movies: [...], shows: [...] })
+      mode  – "library":  every show and movie folder, with artwork
+              "continue": the Continue Watching row
+    Output (one of):
+      library  – { shows: [ { title, paths, art } ], movies: [ { title, path, art } ] }
+      continueTiles – [ tile, ... ] most recent first, where tile =
+                 { kind, title, subtitle, art, progress, player }
+                 and player = PlayerScreen fields, ready to play with one click
+-->
+<component name="HomeScanTask" extends="Task">
+    <interface>
+        <field id="roots" type="assocarray" />
+        <field id="mode" type="string" value="library" />
+        <field id="library" type="assocarray" />
+        <field id="continueTiles" type="array" />
+    </interface>
+    <script type="text/brightscript" uri="HomeScanTask.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Scan.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/NaturalSort.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Library.brs" />
+</component>

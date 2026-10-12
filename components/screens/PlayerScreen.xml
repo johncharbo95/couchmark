@@ -1,31 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    PlayerScreen — full-screen video playback with progress saving.
+    PlayerScreen — full-screen playback with Netflix-style controls.
 
     Fields:
-      title     – movie name (also the key for saved progress)
-      parts     – array of file paths, played in order
-      startPart – 0-based part to start with
-      startPos  – seconds into that part
+      kind       – "movie" or "show" (decides how progress is saved)
+      title      – movie or show name (also the key for saved progress)
+      items      – what to play, in order. Each is an associative array:
+                     { url, label, id }
+                   movie: the movie's parts (label "Part 2 of 3", or "")
+                   show:  every episode of the show (label = episode name,
+                          id = episode id), so playback can continue into
+                          the next episode / season
+      startIndex – item to start with (0-based)
+      startPos   – seconds into that item
 
-    The Video node's built-in UI handles play/pause, seek and the
-    progress bar. Back stops playback and saves the position.
+    Roku's built-in player UI is turned off (enableUI="false") and the screen
+    itself keeps focus, so every remote key arrives in onKeyEvent().
 -->
 <component name="PlayerScreen" extends="BaseScreen">
     <interface>
+        <field id="kind" type="string" value="movie" />
         <field id="title" type="string" />
-        <field id="parts" type="array" />
-        <field id="startPart" type="integer" value="0" />
+        <field id="items" type="array" />
+        <field id="startIndex" type="integer" value="0" />
         <field id="startPos" type="integer" value="0" />
     </interface>
 
     <script type="text/brightscript" uri="PlayerScreen.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
 
     <children>
         <Rectangle width="1920" height="1080" color="0x000000FF" />
-        <Video id="video" width="1920" height="1080" />
+        <Video id="video" width="1920" height="1080" enableUI="false" />
+        <BusySpinner id="spinner" translation="[912, 492]" visible="false" />
+
+        <Group id="controls" visible="false">
+            <!-- Darkened bands so text is readable over the video. -->
+            <Rectangle width="1920" height="210" color="0x000000A0" />
+            <Rectangle translation="[0, 740]" width="1920" height="340" color="0x000000B0" />
+
+            <Label id="titleLabel" translation="[96, 56]" width="1600" ellipsizeOnBoundary="true">
+                <Font role="font" uri="font:BoldSystemFontFile" size="44" />
+            </Label>
+            <Label id="subtitleLabel" translation="[96, 120]" width="1600" color="0xC8D0D8FF" ellipsizeOnBoundary="true">
+                <Font role="font" uri="font:SystemFontFile" size="32" />
+            </Label>
+
+            <!-- Progress bar ("scrubber"). Left/Right seek 10 s while it has focus. -->
+            <Group translation="[96, 790]">
+                <Rectangle width="1728" height="8" color="0xFFFFFF40" />
+                <Rectangle id="barFill" width="0" height="8" color="0x3D7EFFFF" />
+                <Poster id="knob" uri="pkg:/images/dot.png" width="28" height="28" translation="[-14, -10]" scaleRotateCenter="[14, 14]" />
+            </Group>
+            <Label id="elapsedLabel" translation="[96, 816]" width="300">
+                <Font role="font" uri="font:SystemFontFile" size="30" />
+            </Label>
+            <Label id="remainingLabel" translation="[1524, 816]" width="300" horizAlign="right">
+                <Font role="font" uri="font:SystemFontFile" size="30" />
+            </Label>
+
+            <!-- Buttons are created in PlayerScreen.brs (depends on items). -->
+            <Group id="buttonRow" translation="[0, 880]" />
+            <Label id="buttonLabel" translation="[0, 1000]" width="1920" horizAlign="center" color="0xC8D0D8FF">
+                <Font role="font" uri="font:SystemFontFile" size="28" />
+            </Label>
+        </Group>
+
         <UpNextOverlay id="upNext" visible="false" />
+
+        <!-- Hides the controls after a few seconds without key presses. -->
+        <Timer id="hideTimer" duration="5" repeat="false" />
     </children>
 </component>

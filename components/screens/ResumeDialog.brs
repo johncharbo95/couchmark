@@ -22,10 +22,10 @@ end sub
 sub onOptionSelected()
     fields = m.top.playerFields
     if m.options.itemSelected = 0
-        fields.startPart = m.top.resumePart
+        fields.startIndex = m.top.resumeIndex
         fields.startPos = m.top.resumePos
     else
-        fields.startPart = 0
+        fields.startIndex = m.top.restartIndex
         fields.startPos = 0
     end if
     m.top.navigate = { screen: "PlayerScreen", fields: fields, replace: true }

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    MediaTile — one 16:9 tile in a home-screen row (RowList item component).
+
+    Reads from its ContentNode:
+      title        – shown on the card when there's no artwork
+      description  – grey line under the card ("S02E05 · 23 min left")
+      hdPosterUrl  – artwork path, or "" for a coloured title card
+      badge        – "", "watched" (✓) or "partial" (progress bar)
+      progress     – 0.0 – 1.0
+      enabled      – false dims the tile (e.g. a missing folder)
+    RowList sets focusPercent / rowFocusPercent / rowListHasFocus.
+-->
+<component name="MediaTile" extends="Group">
+    <interface>
+        <field id="itemContent" type="node" onChange="onContentSet" />
+        <field id="focusPercent" type="float" onChange="updateFocus" />
+        <field id="rowFocusPercent" type="float" onChange="updateFocus" />
+        <field id="rowListHasFocus" type="boolean" onChange="updateFocus" />
+    </interface>
+
+    <script type="text/brightscript" uri="MediaTile.brs" />
+
+    <children>
+        <Group id="body" scaleRotateCenter="[200, 112]">
+            <Rectangle id="border" translation="[-5, -5]" width="410" height="235" color="0xFFFFFFFF" opacity="0" />
+            <Rectangle id="card" width="400" height="225" color="0x2A3440FF" />
+            <Label id="cardTitle" translation="[24, 0]" width="352" height="225" horizAlign="center" vertAlign="center" wrap="true" maxLines="3">
+                <Font role="font" uri="font:BoldSystemFontFile" size="38" />
+            </Label>
+            <Poster id="art" width="400" height="225" loadWidth="400" loadHeight="225" loadDisplayMode="scaleToZoom" />
+            <Rectangle id="progressTrack" translation="[0, 217]" width="400" height="8" color="0x000000AA" visible="false" />
+            <Rectangle id="progressFill" translation="[0, 217]" width="0" height="8" color="0x3D7EFFFF" visible="false" />
+            <Poster id="check" uri="pkg:/images/check.png" translation="[344, 12]" width="44" height="44" visible="false" />
+        </Group>
+        <Label id="subtitle" translation="[0, 236]" width="400" color="0x8A96A3FF" ellipsizeOnBoundary="true">
+            <Font role="font" uri="font:SystemFontFile" size="26" />
+        </Label>
+    </children>
+</component>

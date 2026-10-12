@@ -5,7 +5,8 @@
     Fields (set by whoever opens the screen):
       title – heading, e.g. "Movies"
       kind  – what the list contains; decides what OK does:
-              "movies": each entry is a movie folder (play / resume it)
+              "movies": each entry is a movie folder (opens MovieScreen)
+              "shows":  each entry is a show folder (opens ShowScreen)
       paths – folders to list (several when merging drives)
 -->
 <component name="FolderListScreen" extends="BaseScreen">
@@ -18,6 +19,7 @@
     <script type="text/brightscript" uri="FolderListScreen.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Library.brs" />
 
     <children>
         <Label id="titleLabel" translation="[155, 90]" width="1200">

@@ -3,11 +3,13 @@
     ResumeDialog — "Resume from 1:02:14 / Start over".
 
     Fields:
-      title        – movie / episode name
+      title        – movie or episode name
       resumeText   – label of the first option
-      resumePart   – part index to resume (multi-part movies, else 0)
+      resumeIndex  – item to resume (movie part or episode index)
       resumePos    – seconds to resume at
-      playerFields – fields for PlayerScreen; startPart/startPos are filled in
+      restartIndex – item "Start over" plays from 0:00 (movie: 0 = part 1;
+                     episode: the same episode)
+      playerFields – fields for PlayerScreen; startIndex/startPos are filled in
                      here depending on the choice
     The dialog *replaces* itself with the player, so Back from the player
     returns to the list rather than to this dialog.
@@ -16,8 +18,9 @@
     <interface>
         <field id="title" type="string" alias="titleLabel.text" />
         <field id="resumeText" type="string" onChange="buildOptions" />
-        <field id="resumePart" type="integer" />
+        <field id="resumeIndex" type="integer" />
         <field id="resumePos" type="integer" />
+        <field id="restartIndex" type="integer" value="0" />
         <field id="playerFields" type="assocarray" />
     </interface>
 

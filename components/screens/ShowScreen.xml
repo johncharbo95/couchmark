@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ShowScreen — a show's page, laid out like Netflix:
+
+        Title, info line, [ Continue S02E05 at 23:14 ]
+        Seasons (left)  |  Episodes of the highlighted season (right)
+
+    Fields:
+      title – show folder name (also the key for saved progress)
+      paths – the show's folder(s), several if it's on more than one drive
+      art   – artwork path or ""
+-->
+<component name="ShowScreen" extends="BaseScreen">
+    <interface>
+        <field id="title" type="string" alias="titleLabel.text" />
+        <field id="paths" type="array" />
+        <field id="art" type="string" />
+    </interface>
+
+    <script type="text/brightscript" uri="ShowScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Library.brs" />
+
+    <children>
+        <Poster id="heroArt" translation="[700, 0]" width="1220" height="686" loadWidth="1220" loadHeight="686" loadDisplayMode="scaleToZoom" opacity="0.7" />
+        <Poster uri="pkg:/images/fade.png" translation="[700, 0]" width="1220" height="686" />
+
+        <Label id="titleLabel" translation="[96, 70]" width="1300" ellipsizeOnBoundary="true">
+            <Font role="font" uri="font:BoldSystemFontFile" size="64" />
+        </Label>
+        <Label id="infoLabel" translation="[96, 160]" width="1300" color="0xC8D0D8FF">
+            <Font role="font" uri="font:SystemFontFile" size="32" />
+        </Label>
+
+        <LabelList
+            id="continueButton"
+            translation="[96, 230]"
+            itemSize="[760, 80]"
+            color="0xC8D0D8FF"
+            focusedColor="0x101418FF"
+            focusBitmapBlendColor="0xFFFFFFFF">
+            <Font role="font" uri="font:BoldSystemFontFile" size="34" />
+            <Font role="focusedFont" uri="font:BoldSystemFontFile" size="34" />
+        </LabelList>
+
+        <MarkupList
+            id="seasons"
+            translation="[96, 360]"
+            itemComponentName="ListItem"
+            itemSize="[420, 84]"
+            itemSpacing="[0, 8]"
+            numRows="7"
+            drawFocusFeedback="false"
+            vertFocusAnimationStyle="floatingFocus" />
+
+        <MarkupList
+            id="episodes"
+            translation="[556, 360]"
+            itemComponentName="ListItem"
+            itemSize="[1268, 84]"
+            itemSpacing="[0, 8]"
+            numRows="7"
+            drawFocusFeedback="false"
+            vertFocusAnimationStyle="floatingFocus" />
+
+        <Label id="emptyLabel" translation="[96, 360]" width="1700" wrap="true" visible="false" color="0xC8D0D8FF">
+            <Font role="font" uri="font:SystemFontFile" size="36" />
+        </Label>
+
+        <LoadingOverlay id="loading" visible="false" />
+    </children>
+</component>

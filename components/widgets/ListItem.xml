@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    ListItem — one row of a FolderListScreen (MarkupList item component).
-    Reads from its ContentNode: title, badge ("", "watched", "partial"),
-    progress (0.0 – 1.0, for "partial").
+    ListItem — one row of a MarkupList (item component), 84 px high.
+    Reads from its ContentNode: title, and optionally
+      badge    – "", "watched" (✓) or "partial" (progress bar)
+      progress – 0.0 – 1.0, for "partial"
+      detail   – small grey text on the right, e.g. "3 of 10 watched"
+      rowWidth – row width in pixels (default 1610). Below 900 px the row
+                 uses a compact layout: no detail text, progress bar along
+                 the bottom edge.
 -->
 <component name="ListItem" extends="Group">
     <interface>
@@ -15,14 +20,15 @@
     <children>
         <Rectangle id="background" width="1610" height="84" color="0x1E252DFF" />
         <Rectangle id="focusBar" width="8" height="84" color="0x3D7EFFFF" opacity="0" />
-        <Label id="title" translation="[36, 0]" width="1300" height="84" vertAlign="center" ellipsizeOnBoundary="true">
-            <Font role="font" uri="font:SystemFontFile" size="38" />
+        <Label id="title" translation="[36, 0]" width="1000" height="84" vertAlign="center" ellipsizeOnBoundary="true">
+            <Font role="font" uri="font:SystemFontFile" size="36" />
         </Label>
-
-        <!-- Badges on the right. -->
-        <Poster id="check" uri="pkg:/images/check.png" width="44" height="44" translation="[1530, 20]" visible="false" />
-        <Group id="progressBar" translation="[1390, 38]" visible="false">
-            <Rectangle width="180" height="8" color="0x3A4552FF" />
+        <Label id="detail" translation="[1050, 0]" width="300" height="84" vertAlign="center" horizAlign="right" color="0x8A96A3FF">
+            <Font role="font" uri="font:SystemFontFile" size="28" />
+        </Label>
+        <Poster id="check" uri="pkg:/images/check.png" width="44" height="44" translation="[1540, 20]" visible="false" />
+        <Group id="progressBar" translation="[1410, 38]" visible="false">
+            <Rectangle id="progressTrack" width="180" height="8" color="0x3A4552FF" />
             <Rectangle id="progressFill" width="0" height="8" color="0x3D7EFFFF" />
         </Group>
     </children>

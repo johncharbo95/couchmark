@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ShowScanTask — reads one show's seasons and episodes.
+
+    Input:
+      paths – the show's folder(s), e.g. ["ext1:/Shows/The Office"]
+              (several if the show exists on more than one drive)
+    Output:
+      show – { items, seasons, art }  (see ScanShow in lib/Scan.brs)
+-->
+<component name="ShowScanTask" extends="Task">
+    <interface>
+        <field id="paths" type="array" />
+        <field id="show" type="assocarray" />
+    </interface>
+    <script type="text/brightscript" uri="ShowScanTask.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Scan.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/NaturalSort.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
+</component>
