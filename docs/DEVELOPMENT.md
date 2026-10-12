@@ -88,7 +88,8 @@ components/
     Text.brs              Shared user-facing strings
 images/                   Icons, splash screens, player icons, fade, ✓ badge
 tests/                    Unit tests run off-device with brs (not packaged), see Testing
-tools/                    Dev scripts (not packaged)
+tools/                    Dev scripts (not packaged): placeholder images, version check
+.github/workflows/        CI (lint + tests + zip on every push/PR) and Release (on v* tags)
 docs/                     Documentation (not packaged)
 ```
 
@@ -316,6 +317,27 @@ Run one file with `npm test -- Progress`.
 - Keys set with dot notation (`aa.photoSeconds = 5`) are stored in lower case. That happens on a Roku too; lookups ignore case. Compare fields one by one rather than whole objects built that way.
 
 On-device unit tests with [Rooibos](https://github.com/georgejecook/rooibos) would be the next step for testing SceneGraph components themselves.
+
+## Continuous integration and releases
+
+**CI** (`.github/workflows/ci.yml`) runs on every push to `main`/`dev` and on every pull request:
+
+- `npm ci`, then `npm run check` (lint + unit tests).
+- The version check (`npm run app-version`).
+- `npm run package`. The resulting `couchmark.zip` is attached to the run as an artifact, so anyone can sideload a pull request's build.
+
+**Releasing a version:**
+
+1. Update the version in **both** `manifest` (`major_version`, `minor_version`, `build_version`) and `package.json` (`"version"`), e.g. 0.3.0. Run `npm install` so `package-lock.json` follows.
+2. Update the README if features changed, run `npm run check`, and commit.
+3. Tag and push the tag:
+   ```sh
+   git tag v0.3.0
+   git push origin v0.3.0
+   ```
+4. `.github/workflows/release.yml` checks that the tag matches the manifest version (`tools/version.js`), runs the checks, builds the zip, and creates a GitHub Release with `couchmark-v0.3.0.zip` attached and auto-generated notes.
+
+If the tag and version don't match, the release fails before anything is published. Delete the tag, fix the version, and tag again.
 
 ## Debugging tips
 

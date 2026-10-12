@@ -1,0 +1,36 @@
+# Runs lint + unit tests on every push and pull request, and builds the
+# sideloadable zip (downloadable from the run's "Artifacts").
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install tools (brighterscript, brs)
+        run: npm ci
+
+      - name: Lint and unit tests
+        run: npm run check
+
+      - name: Check versions agree (manifest / package.json)
+        run: npm run --silent app-version
+
+      - name: Build couchmark.zip
+        run: npm run package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: couchmark-zip
+          path: out/couchmark.zip

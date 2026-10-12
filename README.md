@@ -68,9 +68,10 @@ Whether a particular video plays depends on its codecs and your Roku model; see 
 Couchmark isn't in the Roku Channel Store, so you install it in developer mode. This is free and only takes a few minutes.
 
 1. **Enable developer mode.** On the Roku remote, press **Home ×3, Up ×2, Right, Left, Right, Left, Right**. Follow the prompts, choose a developer password, and note the IP address shown. The TV restarts.
-2. **Get the app package.** Download `couchmark.zip` from the [Releases](../../releases) page (when available), or build it yourself:
-   - **Windows (PowerShell):** `Compress-Archive -Path manifest, source, components, images -DestinationPath couchmark.zip -Force`
-   - **macOS / Linux:** `zip -r couchmark.zip manifest source components images`
+2. **Get the app package.** Download the latest `couchmark-vX.Y.Z.zip` from the [Releases](../../releases) page. To build it yourself instead:
+   - **With Node.js:** `npm install`, then `npm run package`, which creates `out/couchmark.zip`.
+   - **Windows (PowerShell), no tools:** `Compress-Archive -Path manifest, source, components, images -DestinationPath couchmark.zip -Force`
+   - **macOS / Linux, no tools:** `zip -r couchmark.zip manifest source components images`
 3. **Upload it.** On a computer on the same network, open `http://<your-roku-ip>` in a browser and log in with user `rokudev` and your developer password. Click **Upload**, choose `couchmark.zip`, then click **Install with zip**.
 4. Couchmark opens immediately and appears on the Roku home screen as a dev channel.
 

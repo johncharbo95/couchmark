@@ -1,0 +1,44 @@
+# Publishes a GitHub Release when a version tag is pushed:
+#   git tag v0.2.0 && git push origin v0.2.0
+# The tag must match the version in manifest and package.json.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # needed to create the release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tag matches manifest version
+        run: node tools/version.js "$GITHUB_REF_NAME"
+
+      - name: Lint and unit tests
+        run: npm run check
+
+      - name: Build the zip
+        run: |
+          npm run package
+          cp out/couchmark.zip "out/couchmark-$GITHUB_REF_NAME.zip"
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "out/couchmark-$GITHUB_REF_NAME.zip" \
+            --title "Couchmark $GITHUB_REF_NAME" \
+            --notes "Download **couchmark-$GITHUB_REF_NAME.zip** below and install it on your Roku as described in the [README](https://github.com/$GITHUB_REPOSITORY#installing-on-your-roku-sideloading)." \
+            --generate-notes
