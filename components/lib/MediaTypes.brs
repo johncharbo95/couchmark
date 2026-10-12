@@ -55,3 +55,36 @@ function lastIndexOf(text as String, needle as String) as Integer
     end while
     return position
 end function
+
+' A friendlier episode name for display (saved progress uses the real file
+' name, so this is cosmetic):
+'   "How.I.Met.Your.Mother.S04E08.Woooo.720p.HDTV.x264" -> "S04E08 · Woooo"
+'   "S01E02 Diversity Day"                               -> "S01E02 · Diversity Day"
+'   "The Office - 2x05 - Halloween"                      -> "S02E05 · Halloween"
+'   "Pilot"                                              -> "Pilot"
+' code = "S04E08" style code from the file name, or "".
+function CleanEpisodeTitle(title as String, code as String) as String
+    text = title
+    ' Scene-style names use dots or underscores instead of spaces.
+    if Instr(1, text, " ") = 0 then text = text.Replace(".", " ").Replace("_", " ")
+    if code = "" then return text.Trim()
+
+    ' Keep only what follows the episode code ("Show S04E08 Woooo" -> "Woooo").
+    beforeCode = CreateObject("roRegex", "^.*?(s\d{1,3}[ ._-]?e\d{1,4}|\b\d{1,2}x\d{1,4}\b)[ ._-]*", "i")
+    rest = beforeCode.Replace(text, "")
+
+    ' Drop release tags and everything after them ("720p HDTV x264").
+    releaseTags = CreateObject("roRegex", "\s*\b(480p|576p|720p|1080p|2160p|4k|hdtv|webrip|web-dl|web|bluray|brrip|dvdrip|x264|x265|h264|h265|hevc|xvid|aac|ac3|proper|repack)\b.*$", "i")
+    rest = releaseTags.Replace(rest, "").Trim()
+
+    ' Separators left at either end, e.g. "- Halloween -".
+    while Len(rest) > 0 and Instr(1, "-_.", Left(rest, 1)) > 0
+        rest = Mid(rest, 2).Trim()
+    end while
+    while Len(rest) > 0 and Instr(1, "-_.", Right(rest, 1)) > 0
+        rest = Left(rest, Len(rest) - 1).Trim()
+    end while
+
+    if rest = "" then return code
+    return code + "  ·  " + rest
+end function

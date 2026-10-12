@@ -7,6 +7,7 @@
       kind  – what the list contains; decides what OK does:
               "movies": each entry is a movie folder (opens MovieScreen)
               "shows":  each entry is a show folder (opens ShowScreen)
+              "other":  "Play slideshow" row + subfolders (Other browser)
       paths – folders to list (several when merging drives)
 -->
 <component name="FolderListScreen" extends="BaseScreen">

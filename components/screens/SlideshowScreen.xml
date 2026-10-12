@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SlideshowScreen — plays every photo and video in a folder, oldest first.
+
+    Fields:
+      title – folder name (shown in the info bar)
+      paths – the folder(s) (several when the same folder is on two drives)
+
+    Two image "slots" take turns: while one is on screen, the next photo
+    loads into the hidden one, so changing photos never flashes black.
+    Each slot is a Group (moved/faded by transitions) holding a Poster
+    (rotated for EXIF orientation).
+-->
+<component name="SlideshowScreen" extends="BaseScreen">
+    <interface>
+        <field id="title" type="string" />
+        <field id="paths" type="array" />
+    </interface>
+
+    <script type="text/brightscript" uri="SlideshowScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Settings.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />
+
+    <children>
+        <Rectangle width="1920" height="1080" color="0x000000FF" />
+
+        <Group id="slotA" visible="false">
+            <Poster id="posterA" width="1920" height="1080" loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
+        </Group>
+        <Group id="slotB" visible="false">
+            <Poster id="posterB" width="1920" height="1080" loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
+        </Group>
+
+        <Video id="video" width="1920" height="1080" enableUI="false" visible="false" />
+
+        <!-- Date, name and position; shown for a few seconds on key presses. -->
+        <Group id="info" visible="false">
+            <Rectangle translation="[0, 860]" width="1920" height="220" color="0x000000A0" />
+            <Label id="dateLabel" translation="[96, 900]" width="1300">
+                <Font role="font" uri="font:BoldSystemFontFile" size="44" />
+            </Label>
+            <Label id="nameLabel" translation="[96, 965]" width="1300" color="0xC8D0D8FF">
+                <Font role="font" uri="font:SystemFontFile" size="30" />
+            </Label>
+            <Label id="counterLabel" translation="[1424, 910]" width="400" horizAlign="right" color="0xC8D0D8FF">
+                <Font role="font" uri="font:SystemFontFile" size="32" />
+            </Label>
+        </Group>
+
+        <Group id="pauseIcon" translation="[904, 484]" visible="false">
+            <Poster uri="pkg:/images/btn_focus.png" width="112" height="112" />
+            <Poster uri="pkg:/images/ic_pause.png" translation="[24, 24]" width="64" height="64" />
+        </Group>
+
+        <LoadingOverlay id="loading" visible="false" />
+
+        <Timer id="photoTimer" repeat="false" />
+        <Timer id="infoTimer" duration="4" repeat="false" />
+    </children>
+</component>

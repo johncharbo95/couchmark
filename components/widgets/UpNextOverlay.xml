@@ -25,7 +25,7 @@
             <Label id="headingLabel" translation="[40, 30]" color="0x8A96A3FF">
                 <Font role="font" uri="font:SystemFontFile" size="30" />
             </Label>
-            <Label id="titleLabel" translation="[40, 75]" width="600" ellipsizeOnBoundary="true">
+            <Label id="titleLabel" translation="[40, 75]" width="600">
                 <Font role="font" uri="font:BoldSystemFontFile" size="44" />
             </Label>
             <Label id="countdownLabel" translation="[40, 150]" width="600" color="0xC8D0D8FF">

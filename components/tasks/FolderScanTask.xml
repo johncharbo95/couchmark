@@ -7,11 +7,15 @@
                Results from several folders are merged (several drives).
       mode   – "folders": list subfolders (e.g. the movies in Movies/)
                "videos":  list playable video files (e.g. a movie's parts)
+               "browse":  list subfolders AND count the photos / videos /
+                          unsupported files directly inside (Other folders)
     Output:
       content – a ContentNode whose children are the sorted entries:
                 title (display name), url (first path found), and paths
                 (every path with that name, when several drives have it).
                 In "videos" mode, content.hdPosterUrl = the folder's artwork.
+                In "browse" mode, content also has photoCount, videoCount and
+                unsupportedCount.
 -->
 <component name="FolderScanTask" extends="Task">
     <interface>

@@ -1,0 +1,16 @@
+{
+  "name": "couchmark",
+  "version": "0.1.0",
+  "description": "Open-source media player for Roku TVs (USB movies, shows, dated slideshows)",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/run.js",
+    "lint": "bsc --project bsconfig.json",
+    "check": "npm run lint && npm test"
+  },
+  "devDependencies": {
+    "brighterscript": "0.69.13",
+    "brs": "0.45.0"
+  }
+}

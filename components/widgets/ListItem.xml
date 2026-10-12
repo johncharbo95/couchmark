@@ -20,7 +20,7 @@
     <children>
         <Rectangle id="background" width="1610" height="84" color="0x1E252DFF" />
         <Rectangle id="focusBar" width="8" height="84" color="0x3D7EFFFF" opacity="0" />
-        <Label id="title" translation="[36, 0]" width="1000" height="84" vertAlign="center" ellipsizeOnBoundary="true">
+        <Label id="title" translation="[36, 0]" width="1000" height="84" vertAlign="center">
             <Font role="font" uri="font:SystemFontFile" size="36" />
         </Label>
         <Label id="detail" translation="[1050, 0]" width="300" height="84" vertAlign="center" horizAlign="right" color="0x8A96A3FF">

@@ -17,6 +17,15 @@ sub scan()
     content = CreateObject("roSGNode", "ContentNode")
     ' For a movie folder ("videos"), also report its artwork, if any.
     if m.top.mode = "videos" then content.hdPosterUrl = FindArtwork(m.top.paths)
+    ' For an Other folder ("browse"), also count the photos/videos in it.
+    if m.top.mode = "browse"
+        found = ScanMedia(m.top.paths)
+        photos = 0
+        for each item in found.media
+            if item.kind = "photo" then photos = photos + 1
+        end for
+        content.AddFields({ photoCount: photos, videoCount: found.media.Count() - photos, unsupportedCount: found.unsupported })
+    end if
     for each entry in entries
         child = content.CreateChild("ContentNode")
         child.title = entry.title

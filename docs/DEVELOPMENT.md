@@ -9,15 +9,17 @@ This guide is for anyone changing the code. No prior Roku experience is assumed.
 3. Copy `.env.example` to `.env` and fill in `ROKU_HOST` and `ROKU_PASSWORD`. `.env` is git-ignored; never commit credentials.
 4. Press **F5** (launch config *"Couchmark: deploy & debug on Roku"*). The extension zips the app, sideloads it, and attaches the debugger. `print` output appears in the Debug Console.
 
-### Linting
+### Linting and tests
 
-The extension lints as you type using `bsconfig.json`. To lint from a terminal (requires Node.js):
+The extension lints as you type using `bsconfig.json`. From a terminal (requires Node.js), run `npm install` once, then:
 
 ```sh
-npx brighterscript --project bsconfig.json
+npm run lint     # brighterscript: syntax, unknown functions, reserved words
+npm test         # unit tests, run on your computer (no Roku needed)
+npm run check    # both
 ```
 
-This also writes a staging copy to `out/`, which is git-ignored.
+Run `npm run check` before every commit. Build output goes to `out/`, which is git-ignored. See [Testing](#testing) for how the tests work.
 
 ### Placeholder artwork
 
@@ -55,7 +57,8 @@ components/
     HomeScreen            Netflix-style home: hero + rows (Continue Watching, Shows, Movies, Browse)
     MovieScreen           A movie's page: Resume / Play from beginning
     ShowScreen            A show's page: Continue button, seasons | episodes
-    FolderListScreen      A–Z lists of all movies or shows
+    FolderListScreen      A–Z lists of all movies or shows; the Other folder browser
+    SlideshowScreen       Dated photo/video slideshow with preloading
     ResumeDialog          "Resume from … / Start over" (episodes)
     PlayerScreen          Video playback with custom controls; saves progress
     MessageScreen         Title + explanation (errors, help, placeholders)
@@ -64,6 +67,7 @@ components/
     HomeScanTask          Home rows: library + artwork, Continue Watching tiles
     FolderScanTask        Lists subfolders or video files (+ a movie's artwork)
     ShowScanTask          Reads one show's seasons + episodes (+ artwork)
+    MediaDateTask         Lists a folder's photos/videos and sorts them by date taken
   widgets/                Reusable pieces
     MediaTile             16:9 tile with artwork, progress bar, ✓ (RowList item)
     ListItem              List row with title, detail text, badge (MarkupList item)
@@ -73,11 +77,14 @@ components/
     Scan.brs              Reading folders: ScanFolders, ScanVideos, ScanShow, FindArtwork (Tasks only)
     Library.brs           Movie/show helpers: player items, badges, "Continue" target
     Progress.brs          Registry storage of playback progress + pruning
+    Settings.brs          Registry storage of user settings (photo duration, transition, speed)
+    MediaDate.brs         Date taken: EXIF, MP4/MOV mvhd (partial reads), file mtime; EXIF orientation
     NaturalSort.brs       Natural sort keys, S01E02 / 1x02 detection
     MediaTypes.brs        Supported extensions, junk-file filter, stream formats
     Format.brs            Time formatting (1:02:14, "23 min")
     Text.brs              Shared user-facing strings
 images/                   Icons, splash screens, player icons, fade, ✓ badge
+tests/                    Unit tests run off-device with brs (not packaged), see Testing
 tools/                    Dev scripts (not packaged)
 docs/                     Documentation (not packaged)
 ```
@@ -171,9 +178,25 @@ Progress is saved every 10 s, on Back, and before Previous/Next. The rules diffe
 | 15 s or more, under 90% | resume point saved (part + position) | resume point saved, becomes "last played" |
 | Under 15 s | nothing saved (an old resume point on part 1 is cleared) | becomes "last played", no resume point |
 
-### Planned (later milestones)
+### Other folders and slideshows
 
-- **MediaDateTask:** reads slideshow dates from EXIF (`roImageMetadata`), the MP4/MOV `mvhd` box (partial `roByteArray.ReadFile` reads), or the file's mtime.
+**Browsing:** FolderListScreen with `kind: "other"` runs FolderScanTask in `"browse"` mode. That returns the subfolders, plus counts of the photos, videos and unsupported files directly in the folder (`ScanMedia()`). If there are any photos or videos, a **Play slideshow** row is inserted first. Other rows open the subfolder in another FolderListScreen.
+
+**Dates (`MediaDateTask` + `lib/MediaDate.brs`):**
+
+- **JPEG:** `roImageMetadata.GetMetadata().datetime` (EXIF date taken). EXIF tag 274 (orientation) gives the rotation.
+- **MP4/MOV/M4V:** walk the top-level boxes by reading only each 8–16-byte header with `roByteArray.ReadFile(path, offset, length)` and jumping over the rest, so a large `mdat` is never read. Inside `moov`, read `mvhd`: creation time is seconds since 1904 (UTC), 32-bit in version 0 and 64-bit in version 1. The arithmetic uses `LongInteger` (`&`) because the values exceed 32 bits and Doubles can round when converted back. Offsets past ~2 GB can't be passed to `ReadFile`, so those files fall back to the modified time.
+- **Otherwise:** `roFileSystem.Stat(path).mtime`.
+- EXIF dates are local time, while MP4 and file times are UTC. The UTC ones are shifted by the TV's time-zone offset so photos and videos interleave correctly.
+
+Items are sorted by a zero-padded date key, with the natural name order as tie-breaker (burst photos).
+
+**Playback (`SlideshowScreen`):** there are two *slots*. Each is a Group (for transitions to animate) holding a Poster (rotated for EXIF orientation). The visible slot is `m.front`. While it shows, `preloadNext()` loads the next photo into the hidden slot. `showItem()` reveals the hidden slot as soon as its `loadStatus` is `ready`, so there's never a black frame. Sideways photos use a 1080×1920 poster turned a quarter-turn around its centre, so after rotation they fill the screen height. Posters decode at screen size (`loadWidth`/`loadHeight`), not camera resolution.
+
+- **Timing:** each photo stays up for `SettingsGet().photoSeconds` (Timer). Pausing remembers the remaining time (`roTimespan`).
+- **Videos:** play in a Video node above the slots, and `finished` moves on.
+- **Failures:** files that fail to load or play are skipped. If every file fails, a message is shown.
+- **Looping:** after the last item, the slideshow starts over at the first.
 
 ### Registry schema
 
@@ -183,7 +206,7 @@ Roku gives each app about 16 KB of persistent registry storage. The code for thi
 |---|---|---|---|
 | `progress` | `m` + 8 hex chars of MD5(lower-case movie folder name) | `lastUsed\|part\|parts\|pos\|dur\|watched\|title` | ✅ |
 | `progress` | `s` + 8 hex chars of MD5(lower-case show folder name) | `lastUsed\|lastEp\|watched\|partials\|title` | ✅ |
-| `settings` | `dur`, `tr`, `spd` | photo seconds, transition name, speed name | planned |
+| `settings` | `dur`, `tr`, `spd` | photo seconds, transition name, speed name | read ✅ (screen in milestone 5) |
 
 The `title` (folder name) lets the home screen build Continue Watching from the registry alone. It's the last field, so a title containing `|` still parses. Records saved before titles were added have no title. They still work, but they don't appear in Continue Watching until the title is played again.
 
@@ -193,13 +216,62 @@ Show example: `1760270000|0b12ef|77ac10,0b12ef|c4d2e1:612:2580|The Office`. Here
 
 An episode id is 6 hex characters of MD5 of the episode's path relative to the show folder (`Season 2/S02E05.mkv`, lower-cased), so adding or renaming *other* files doesn't affect it. When the total size passes about 13 KB, the entries with the oldest `lastUsed` are pruned first.
 
-## Testing logic off the TV
+## Testing
 
-Pure logic (sorting, `ContinueTarget`, time formatting, registry encoding) can be run on a PC with [`brs`](https://github.com/sjbarag/brs), an off-device BrightScript interpreter: `npx brs test.brs components/lib/NaturalSort.brs …`. It has gaps, so treat a failure there as a hint rather than proof:
+### What is tested, and how
 
-- No `roRegistrySection` or `roByteArray.FromAsciiString`. Stub `progressSection()` and `md5Hex()` when testing `Progress.brs`.
-- `Right(s, n)` with `n = Len(s)` is wrong.
-- `SortBy` doesn't sort when the sort field is a mixed-case key written in a literal (`{ sortKey: … }`). The app sorts by lower-case field names where that matters, so both `brs` and Roku agree.
+Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay thin: they gather input, call those functions, and show the result. The functions can therefore be tested on a computer with [`brs`](https://github.com/sjbarag/brs), an off-device BrightScript interpreter. Covered so far:
+
+| Test file | What it checks |
+|---|---|
+| `NaturalSort.test.brs` | "2" before "10", case, `S01E02` / `1x02` codes |
+| `MediaTypes.test.brs` | supported/junk files, extensions, episode-name cleanup |
+| `Format.test.brs` | `1:02:14`, "23 min" |
+| `Progress.test.brs` | registry encoding round trips, titles with `\|`, resume-point limit, newest-first list, pruning to the size budget |
+| `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text |
+| `MediaDate.test.brs` | MP4/MOV `mvhd` dates on real files (`tests/fixtures/`), fallback to the file date |
+
+Screens (focus, layout, playback) need a real Roku and are tested by hand. If you change a screen, also try it on a TV.
+
+### Writing a test
+
+A test file is `tests/<Name>.test.brs`, with a `Main()` that calls the assertions from `tests/lib/Assert.brs` and ends with `finishTests()`:
+
+```brightscript
+' @include components/lib/Format.brs
+sub Main()
+    assertEqual(FormatTime(845), "14:05", "minutes")
+    finishTests()
+end sub
+```
+
+Directives at the top tell `tests/run.js` what to load:
+
+- `' @include path`: app code under test.
+- `' @double path`: a *test double*. Functions it defines replace the same-named functions in the included code, but only in the test build; app code doesn't change. Doubles exist for the things that need a Roku:
+  - `tests/doubles/Registry.brs`: in-memory registry, a stand-in for MD5, and a fake clock.
+  - `tests/doubles/Files.brs`: file reads from fixtures, a fixed file date, UTC offset 0.
+- `' @fixture path`: a file whose bytes become available to the Files double (call `loadFixtures()` first).
+
+Run one file with `npm test -- Progress`.
+
+### Keeping code testable
+
+- Put decisions (what to show, what to save, how to sort or parse) in `components/lib/` functions that take values and return values.
+- Touch the device (registry, files, `roDateTime` "now") only through small functions such as `progressSection()`, `md5Hex()`, `nowSeconds()`, `readBytes()`, `fileSizeOf()` and `FileModifiedTime()`. Then a double can replace them.
+- A bug fix should come with a test that fails without the fix. Example: `MediaTypes.test.brs` covers the dotted episode names that once showed as "…".
+
+### `brs` quirks
+
+`brs` is not a Roku, so a few things differ. Avoid them in tests, or keep the code neutral:
+
+- No `roRegistrySection`, `roEVPDigest`/`roByteArray.FromAsciiString` or `roByteArray.ReadFile`. That's why the doubles exist.
+- Integer literals of 10+ digits are read as Doubles. Keep test numbers small, or compare values computed by the code.
+- `Int()` of a large Double loses precision. The app uses `LongInteger` (`&`) for MP4 times, which is exact on both.
+- `Right(s, n)` with `n = Len(s)` returns the wrong result.
+- `SortBy` doesn't sort when the sort field is a mixed-case key written in a literal (`{ sortKey: … }`). The app sorts flat items by lower-case field names.
+
+On-device unit tests with [Rooibos](https://github.com/georgejecook/rooibos) would be the next step for testing SceneGraph components themselves.
 
 ## Debugging tips
 

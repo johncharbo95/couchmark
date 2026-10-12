@@ -3,7 +3,7 @@ Open-source media player for Roku TVs. Plays movies, shows, and photos from a US
 
 Everything runs on the TV. There is no server, account, or companion app: plug in a USB drive, open Couchmark, and press play.
 
-> **Status:** early development. Milestones 1–3 (USB detection, Netflix-style home with Continue Watching, movies and shows with resume) are done. The features below marked *planned* arrive in the next milestones.
+> **Status:** early development. Milestones 1–4 (USB detection, Netflix-style home with Continue Watching, movies and shows with resume, dated slideshows) are done. The features below marked *planned* arrive in the next milestones.
 
 ## Features
 
@@ -14,7 +14,7 @@ Everything runs on the TV. There is no server, account, or companion app: plug i
 | Movies | Movie page with Resume / Play from beginning. Multi-file movies play as parts. Finished movies get a ✓. | ✅ |
 | Shows | Show page with seasons and episodes side by side, "Continue S02E05 at 23:14", watched ✓ and partly-watched markers, and "Up next" when an episode ends. | ✅ |
 | Player | Netflix-style controls: 10-second skip, instant replay, previous/next episode, progress bar. | ✅ |
-| Other | Slideshow of all photos and videos in a folder, ordered by the date they were taken. | planned |
+| Other | Browse folders and play a slideshow of all photos and videos in a folder, ordered by the date they were taken. | ✅ |
 | Transitions | None, fade, slide, push, wipe, zoom, random. | planned |
 | Settings | Photo duration, transition type and speed, clear watch history. | planned |
 
@@ -103,6 +103,22 @@ Use Left/Right to move between seasons and episodes, and Up to get back to the C
 
 Episode files are ordered by their `S01E02` / `1x02` code when they have one, otherwise naturally by name. Video files placed directly in a show folder (no season folder) appear under "Episodes".
 
+### Other (slideshows)
+
+Open **Browse → Other** to see the folders inside `Other`. In any folder that contains photos or videos, the first row is **Play slideshow**. It shows how many photos and videos the folder holds, and how many files can't be shown (for example HEIC photos). The slideshow includes the files directly in that folder, not its subfolders.
+
+- Items play **in the order they were taken**: the camera date for JPEG photos, the recording date for MP4/MOV videos, and otherwise the file's modified date.
+- Photos stay on screen for 5 seconds (adjustable in Settings), and videos play to the end. After the last item, the slideshow starts over.
+- Portrait phone photos are rotated upright automatically.
+
+| Button | Action |
+|---|---|
+| **OK** or **Play/Pause** | Pause / resume |
+| **Left / ◀◀** | Previous photo or video |
+| **Right / ▶▶** | Next photo or video |
+| **Up / Down / \*** | Show the date, file name and position (e.g. 12 / 240) |
+| **Back** | Leave the slideshow |
+
 ### Player controls
 
 | Button | Action |
@@ -124,12 +140,13 @@ If no drive is found, plug one in. Couchmark notices it automatically, or you ca
 - **No transcoding.** Roku plays files directly, so videos must use codecs your Roku supports (H.264/H.265 video with AAC/AC3 audio in MP4 or MKV is the safest choice). Unsupported files are skipped or show an error instead of crashing.
 - **HEIC photos are not supported** (the default iPhone format). Convert them to JPEG, or set the iPhone to *Settings → Camera → Formats → Most Compatible*.
 - **Subtitles are ignored** for now.
+- **Slideshow dates** come from the photo's EXIF data or the video's MP4/MOV header. Photos edited or exported without EXIF, and MKV/TS/WebM videos, use the file's modified date, which may be when the file was copied rather than when it was taken.
 - **Watch history is limited.** Roku gives each app about 16 KB of storage, so Couchmark stores progress compactly and forgets the least recently watched titles when space runs out.
 - History is keyed by folder name, so renaming a movie or show folder resets its progress.
 
 ## Contributing / development
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the dev setup (VS Code + BrightScript Language extension), project layout, architecture, and debugging tips.
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the dev setup (VS Code + BrightScript Language extension), project layout, architecture, testing, and debugging tips. Before sending a change, run `npm install` once and then `npm run check` (lint + unit tests, no Roku needed).
 
 ## License
 

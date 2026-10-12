@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    MediaDateTask — prepares a slideshow: lists the photos and videos in a
+    folder and sorts them by the date they were taken (see lib/MediaDate.brs).
+
+    Input:
+      paths – the folder(s) (several when the same folder is on two drives)
+    Output:
+      progress – "120 / 400" while working (for the loading message)
+      items    – [ { path, kind, name, date, source, rotation }, ... ]
+                 oldest first; date = seconds since 1970
+-->
+<component name="MediaDateTask" extends="Task">
+    <interface>
+        <field id="paths" type="array" />
+        <field id="progress" type="string" />
+        <field id="items" type="array" />
+    </interface>
+    <script type="text/brightscript" uri="MediaDateTask.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Scan.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/MediaDate.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/NaturalSort.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
+</component>

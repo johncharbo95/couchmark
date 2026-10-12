@@ -1,8 +1,11 @@
 ' ============================================================================
-' FolderListScreen.brs — the A–Z lists ("All Movies", "All Shows")
+' FolderListScreen.brs — the A–Z lists ("All Movies", "All Shows") and the
+' Other folder browser.
 '
-'   1. On first focus, scan the folder(s) for movie / show folders.
+'   1. On first focus, scan the folder(s) for subfolders.
 '   2. OK opens MovieScreen or ShowScreen.
+'   Other: the first row plays a slideshow of this folder's photos and
+'   videos; the other rows open subfolders (another FolderListScreen).
 '   Movie badges (✓ / progress bar) are refreshed whenever the screen
 '   reappears, e.g. after returning from the player.
 ' ============================================================================
@@ -43,6 +46,7 @@ sub startListScan()
     m.listTask = CreateObject("roSGNode", "FolderScanTask")
     m.listTask.paths = m.top.paths
     m.listTask.mode = "folders"
+    if m.top.kind = "other" then m.listTask.mode = "browse"
     m.listTask.ObserveField("content", "onListScanned")
     m.listTask.control = "run"
 end sub
@@ -51,10 +55,13 @@ sub onListScanned(event as Object)
     m.loading.visible = false
     content = event.GetData()
 
+    if m.top.kind = "other" then addSlideshowRow(content)
+
     count = content.GetChildCount()
     if count = 0
         example = "Movies / The Matrix (1999) / The Matrix.mp4"
         if m.top.kind = "shows" then example = "Shows / The Office / Season 1 / S01E01.mp4"
+        if m.top.kind = "other" then example = "Other / Summer 2025 / IMG_0001.jpg"
         m.emptyLabel.text = "No folders found in " + m.top.title + "." + Chr(10) + Chr(10) + "Each title should be in its own folder, e.g.  " + example
         m.emptyLabel.visible = true
         return
@@ -63,10 +70,11 @@ sub onListScanned(event as Object)
     noun = "titles"
     if m.top.kind = "shows" then noun = "shows"
     m.countLabel.text = count.ToStr() + " " + noun
+    if m.top.kind = "other" then m.countLabel.text = ""
 
     for each item in content.GetChildren(-1, 0)
         ' Extra fields read by ListItem to draw the ✓ / progress bar.
-        item.AddFields({ badge: "", progress: 0.0, detail: "" })
+        if not item.HasField("detail") then item.AddFields({ badge: "", progress: 0.0, detail: "" })
     end for
     m.list.content = content
     refreshBadges()
@@ -88,8 +96,39 @@ sub refreshBadges()
     end for
 end sub
 
+' Other: puts "Play slideshow · 24 photos · 3 videos" first when the folder
+' itself holds any photos or videos.
+sub addSlideshowRow(content as Object)
+    photos = content.photoCount
+    videos = content.videoCount
+    if photos + videos = 0 then return
+
+    counts = []
+    if photos > 0 then counts.Push(plural(photos, "photo"))
+    if videos > 0 then counts.Push(plural(videos, "video"))
+    if content.unsupportedCount > 0 then counts.Push(content.unsupportedCount.ToStr() + " unsupported")
+
+    row = CreateObject("roSGNode", "ContentNode")
+    row.title = "Play slideshow"
+    row.AddFields({ badge: "", progress: 0.0, detail: counts.Join("  ·  "), isSlideshow: true })
+    content.InsertChild(row, 0)
+end sub
+
+function plural(count as Integer, word as String) as String
+    if count = 1 then return "1 " + word
+    return count.ToStr() + " " + word + "s"
+end function
+
 sub onItemSelected()
     item = m.list.content.GetChild(m.list.itemSelected)
+    if m.top.kind = "other"
+        if item.HasField("isSlideshow")
+            m.top.navigate = { screen: "SlideshowScreen", fields: { title: m.top.title, paths: m.top.paths } }
+        else
+            m.top.navigate = { screen: "FolderListScreen", fields: { title: item.title, kind: "other", paths: item.paths } }
+        end if
+        return
+    end if
     if m.top.kind = "shows"
         m.top.navigate = { screen: "ShowScreen", fields: { title: item.title, paths: item.paths, art: "" } }
     else

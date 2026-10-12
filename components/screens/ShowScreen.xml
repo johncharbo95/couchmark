@@ -26,7 +26,7 @@
         <Poster id="heroArt" translation="[700, 0]" width="1220" height="686" loadWidth="1220" loadHeight="686" loadDisplayMode="scaleToZoom" opacity="0.7" />
         <Poster uri="pkg:/images/fade.png" translation="[700, 0]" width="1220" height="686" />
 
-        <Label id="titleLabel" translation="[96, 70]" width="1300" ellipsizeOnBoundary="true">
+        <Label id="titleLabel" translation="[96, 70]" width="1300">
             <Font role="font" uri="font:BoldSystemFontFile" size="64" />
         </Label>
         <Label id="infoLabel" translation="[96, 160]" width="1300" color="0xC8D0D8FF">

@@ -33,7 +33,7 @@
             <Rectangle id="progressFill" translation="[0, 217]" width="0" height="8" color="0x3D7EFFFF" visible="false" />
             <Poster id="check" uri="pkg:/images/check.png" translation="[344, 12]" width="44" height="44" visible="false" />
         </Group>
-        <Label id="subtitle" translation="[0, 236]" width="400" color="0x8A96A3FF" ellipsizeOnBoundary="true">
+        <Label id="subtitle" translation="[0, 236]" width="400" color="0x8A96A3FF">
             <Font role="font" uri="font:SystemFontFile" size="26" />
         </Label>
     </children>

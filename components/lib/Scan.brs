@@ -46,6 +46,36 @@ function ScanVideos(folders as Object, episodeAware as Boolean) as Object
     return entries
 end function
 
+' Photos and videos directly inside one or more folders (not subfolders):
+'   { media: [ { name, path, kind: "photo" | "video" }, ... ], unsupported: n }
+' "unsupported" counts other files (e.g. HEIC photos) so the UI can say
+' why they're missing. Hidden/system files aren't counted.
+function ScanMedia(folders as Object) as Object
+    fs = CreateObject("roFileSystem")
+    media = []
+    unsupported = 0
+    seen = {}
+    for each folder in folders
+        for each name in fs.GetDirectoryListing(folder + "/")
+            path = folder + "/" + name
+            kind = MediaKind(name)
+            if kind <> "" and not seen.DoesExist(name)
+                seen[name] = true
+                media.Push({ name: name, path: path, kind: kind })
+            else if kind = "" and not IsJunkName(name) and not isDirectory(fs, path) and not isSidecarName(name)
+                unsupported = unsupported + 1
+            end if
+        end for
+    end for
+    return { media: media, unsupported: unsupported }
+end function
+
+' Subtitle files and similar sidecar files aren't worth reporting.
+function isSidecarName(name as String) as Boolean
+    ext = FileExtension(name)
+    return ext = "srt" or ext = "sub" or ext = "idx" or ext = "nfo" or ext = "txt" or ext = "xml"
+end function
+
 ' Every episode of a show, in watching order:
 '   {
 '     items:   [ { url, label, id, code }, ... ]   (PlayerScreen items)
@@ -71,11 +101,12 @@ end function
 sub addSeason(items as Object, seasons as Object, title as String, relativePrefix as String, episodes as Object)
     first = items.Count()
     for each episode in episodes
+        code = episodeCodeLabel(episode.name)
         items.Push({
             url: episode.path
-            label: episode.title
+            label: CleanEpisodeTitle(episode.title, code)
             id: ProgressEpisodeId(relativePrefix + episode.name)
-            code: episodeCodeLabel(episode.name)
+            code: code
         })
     end for
     seasons.Push({ title: title, first: first, count: episodes.Count() })
