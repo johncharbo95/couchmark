@@ -12,7 +12,7 @@ Everything runs on the TV. There is no server, account, or companion app: plug i
 | USB detection | Finds every attached USB drive and merges their folders into one library. Rescans automatically when a drive is plugged in or removed. | ✅ |
 | Home | Netflix-style rows: **Continue Watching** (one click resumes), Shows, Movies, and Browse. Uses folder artwork when available. | ✅ |
 | Movies | Movie page with Resume / Play from beginning. Multi-file movies play as parts. Finished movies get a ✓. | ✅ |
-| Shows | Show page with seasons and episodes side by side, "Continue S02E05 at 23:14", watched ✓ and partly-watched markers, and "Up next" when an episode ends. | ✅ |
+| Shows | Show page with seasons and episodes side by side, "Continue S02E05 at 23:14", watched ✓ and partly-watched markers, and an "Up next" card in the last 10 seconds of each episode. | ✅ |
 | Player | Netflix-style controls: 10-second skip, instant replay, previous/next episode, progress bar. | ✅ |
 | Watched marks | Mark movies, episodes or whole seasons as watched / unwatched with the ✱ button. | ✅ |
 | Other | Browse folders and play a slideshow of all photos and videos in a folder, ordered by the date they were taken. | ✅ |
@@ -91,7 +91,7 @@ Back on the home screen exits Couchmark.
 
 ### Movies
 
-A movie's page offers **Resume** and **Play from beginning** (or just **Play**). If a movie folder holds several video files, they play one after another as parts, and between parts an **Up next** card counts down 10 seconds (OK plays now, Back stops).
+A movie's page offers **Resume** and **Play from beginning** (or just **Play**). If a movie folder holds several video files, they play one after another as parts. During the last 10 seconds of a part, an **Up next** card counts down: press **OK** to start the next part right away, or let it finish and the next part starts by itself.
 
 ### Shows
 
@@ -101,7 +101,7 @@ A show's page has a **Continue** button at the top, seasons on the left, and tha
 - **Next: S02E06** if you finished the last one
 - **Start watching S01E01** if you've never watched it
 
-Use Left/Right to move between seasons and episodes, and Up to get back to the Continue button. Episodes show ✓ when watched and a blue bar with the time left when partly watched. When an episode ends, **Up next** counts down 10 seconds to the next one, including into the next season.
+Use Left/Right to move between seasons and episodes, and Up to get back to the Continue button. Episodes show ✓ when watched and a blue bar with the time left when partly watched. During the last 10 seconds of an episode, an **Up next** card appears in the corner and counts down. Press **OK** to start the next episode right away, or let it finish and the next one starts by itself, including into the next season. Pause, rewind and the other buttons keep working while the card is showing; rewinding hides it.
 
 Episode files are ordered by their `S01E02` / `1x02` code when they have one, otherwise naturally by name. Video files placed directly in a show folder (no season folder) appear under "Episodes".
 

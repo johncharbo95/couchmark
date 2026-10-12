@@ -74,7 +74,7 @@ components/
     ListItem              List row with title, detail text, badge (MarkupList item)
     LoadingOverlay        Dimmed background + spinner while a Task runs
     Toast                 Short confirmation message ("Marked as watched")
-    UpNextOverlay         "Up next" card with a 10 s countdown
+    UpNextOverlay         "Up next" card (display only; PlayerScreen drives it)
   lib/                    Plain BrightScript helpers included via <script>
     Scan.brs              Reading folders: ScanFolders, ScanVideos, ScanShow, FindArtwork (Tasks only)
     Library.brs           Movie/show helpers: player items, badges, "Continue" target
@@ -172,7 +172,9 @@ OK on an episode with a resume point opens ResumeDialog. "Start over" restarts *
 
 The Video node's own UI is disabled (`enableUI="false"`), and the screen itself keeps focus rather than the Video node, so every key reaches `PlayerScreen.onKeyEvent`. The overlay has a title, a progress bar ("scrubber") with the elapsed time on the left and `-time left / total` on the right (`FormatRemainingOfTotal()`), and a button row that's built at runtime. Previous and Next only appear when there is more than one item. Focus is either on the bar (Left/Right seek 10 s) or on the buttons (Left/Right move). ↺ (`replay`) seeks −10 s and ◀◀/▶▶ (`rewind`/`fastforward`) seek ±30 s. Repeated seeks add up: each one starts from the previous target (`m.pendingSeek`), not from the playback position, which lags behind. A Timer hides the controls after 3 s unless playback is paused.
 
-When an item finishes and another follows, UpNextOverlay counts down 10 s. After the last item, the player closes. Playback errors (usually an unsupported codec) replace the player with a MessageScreen that shows the Video node's `errorMsg`.
+**Up next:** on every position update, `UpNextCountdown(position, duration, hasNext())` in `lib/Library.brs` (unit-tested) returns the seconds left during the last 10 s of an item that has a successor, or −1. `updateUpNext()` then shows, updates or hides the card. The card has no key handling of its own. The player keeps the remote: **OK** while the card shows calls `playNextNow()`, which saves the current item as finished and starts the next one, unless OK is meant for a highlighted button. **Play/Pause** always pauses, and seeking back hides the card. When an item finishes, the next one starts immediately. After the last item, the player closes.
+
+When the controls hide, the highlight resets to the scrubber and the Play/Pause button (`m.playPauseButton`), so a stale highlight on Next can't be pressed by accident. Every key is logged (`[Player] key …`) to help diagnose remote-control problems. Playback errors (usually an unsupported codec) replace the player with a MessageScreen that shows the Video node's `errorMsg`.
 
 Progress is saved every 10 s, on Back, and before Previous/Next. The rules differ slightly by kind:
 

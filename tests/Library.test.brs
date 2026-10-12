@@ -9,7 +9,19 @@ sub Main()
     testMovies()
     testMarkMovie()
     testMarkEpisodes()
+    testUpNextCountdown()
     finishTests()
+end sub
+
+sub testUpNextCountdown()
+    assertEqual(UpNextCountdown(100, 1320, true), -1, "mid-episode: no card")
+    assertEqual(UpNextCountdown(1309.5, 1320, true), -1, "10.5 s left: not yet")
+    assertEqual(UpNextCountdown(1310, 1320, true), 10, "10 s left: card appears")
+    assertEqual(UpNextCountdown(1310.8, 1320, true), 10, "9.2 s left shows 10")
+    assertEqual(UpNextCountdown(1319.9, 1320, true), 1, "never shows 0")
+    assertEqual(UpNextCountdown(1315, 1320, false), -1, "last episode: no card")
+    assertEqual(UpNextCountdown(15, 20, true), -1, "short clip: no card")
+    assertEqual(UpNextCountdown(5, 0, true), -1, "length unknown: no card")
 end sub
 
 sub testMarkMovie()

@@ -57,6 +57,22 @@ function MovieResumeText(record as Object) as String
 end function
 
 ' ----------------------------------------------------------------------------
+' Player
+' ----------------------------------------------------------------------------
+
+' The number on the "Up next" card ("Starting in 7 s"), or -1 when the card
+' shouldn't show. It shows during the last 10 seconds of an episode or part,
+' only if something follows, and not for clips under 30 seconds.
+function UpNextCountdown(position as Float, duration as Float, somethingFollows as Boolean) as Integer
+    if not somethingFollows or duration < 30 then return -1
+    remaining = duration - position
+    if remaining > 10 or remaining < 0 then return -1
+    seconds = Int(remaining + 0.999)   ' round up: 9.2 s left shows 10
+    if seconds < 1 then seconds = 1
+    return seconds
+end function
+
+' ----------------------------------------------------------------------------
 ' Shows
 ' ----------------------------------------------------------------------------
 

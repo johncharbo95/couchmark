@@ -2,7 +2,9 @@
 ' PlayerScreen.brs
 '
 ' REMOTE KEYS
-'   OK / Play-Pause   pause or resume (OK on a button presses that button)
+'   Play-Pause        pause or resume (always; never skips)
+'   OK                pause or resume; on a button: press it; while the
+'                     "Up next" card shows: play the next item now
 '   Left / Right      back / forward 10 s   (on the button row: move)
 '   ↺ Instant replay  back 10 s
 '   ◀◀ / ▶▶           back / forward 30 s
@@ -16,7 +18,9 @@
 '   - Past 90% of a movie's last part, or of an episode: watched ✓, resume
 '     point cleared.
 '   - Less than 15 s in: no resume point.
-'   - When an item ends and another follows, "Up next" counts down 10 s.
+'   - During the last 10 s of an item that has a successor, the "Up next"
+'     card counts down (UpNextCountdown in lib/Library.brs). When the item
+'     ends, the next one starts straight away.
 ' ============================================================================
 
 sub init()
@@ -38,7 +42,6 @@ sub init()
 
     m.video.ObserveField("state", "onVideoStateChange")
     m.video.ObserveField("position", "onPositionChange")
-    m.upNext.ObserveField("choice", "onUpNextChoice")
     m.hideTimer.ObserveField("fire", "onHideTimer")
     m.top.ObserveField("focusedChild", "onFocusedChildChange")
 
@@ -91,8 +94,14 @@ end function
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
     if not press then return false
-    ' While "Up next" is showing, it handles the keys itself.
-    if m.upNext.visible then return false
+    print "[Player] key "; key
+
+    ' OK on the "Up next" card plays the next item now (unless OK is meant
+    ' for a highlighted button in the controls).
+    if key = "OK" and m.upNext.visible and not (m.controls.visible and m.focusRow = "buttons")
+        playNextNow()
+        return true
+    end if
 
     if key = "back"
         leave()
@@ -184,10 +193,10 @@ sub buildButtons()
     if m.items.Count() > 1 then m.buttons.Push({ id: "next", icon: "ic_next", label: nextLabel })
 
     spacing = 150
-    left = (1920 - ((m.buttons.Count() - 1) * spacing + 112)) / 2
+    startX = (1920 - ((m.buttons.Count() - 1) * spacing + 112)) / 2
     for i = 0 to m.buttons.Count() - 1
         group = m.buttonRow.CreateChild("Group")
-        group.translation = [left + i * spacing, 0]
+        group.translation = [startX + i * spacing, 0]
         ring = group.CreateChild("Poster")
         ring.uri = "pkg:/images/btn_focus.png"
         ring.width = 112
@@ -201,7 +210,10 @@ sub buildButtons()
         m.buttons[i].group = group
         m.buttons[i].ring = ring
         m.buttons[i].iconNode = icon
-        if m.buttons[i].id = "playpause" then m.button = i
+        if m.buttons[i].id = "playpause"
+            m.button = i
+            m.playPauseButton = i
+        end if
     end for
 end sub
 
@@ -279,7 +291,10 @@ end sub
 sub onHideTimer()
     if m.video.state = "paused" then return
     m.controls.visible = false
+    ' Next time, start from the scrubber with Play/Pause highlighted, so a
+    ' stale highlight on "Next" can't be pressed by accident.
     m.focusRow = "bar"
+    m.button = m.playPauseButton
 end sub
 
 ' Draws the progress bar. position < 0 = use the current playback position.
@@ -309,6 +324,7 @@ sub onPositionChange()
     ' A seek has finished once playback reaches its target.
     if m.pendingSeek >= 0 and Abs(position - m.pendingSeek) < 2 then m.pendingSeek = -1
     if m.controls.visible then updateBar(-1)
+    updateUpNext()
 
     if Abs(position - m.lastSavedAt) >= 10
         m.lastSavedAt = position
@@ -381,14 +397,10 @@ sub onVideoStateChange()
 
     if state = "finished"
         m.controls.visible = false
-        saveProgress(true)
         if hasNext()
-            m.upNext.heading = "Up next"
-            m.upNext.title = m.items[m.index + 1].label
-            m.upNext.visible = true
-            m.upNext.start = true
-            m.upNext.SetFocus(true)
+            playNextNow()
         else
+            saveProgress(true)
             m.top.navigate = { action: "back" }
         end if
 
@@ -404,12 +416,24 @@ sub onVideoStateChange()
     end if
 end sub
 
-sub onUpNextChoice()
-    m.upNext.visible = false
-    m.top.SetFocus(true)
-    if m.upNext.choice = "play"
-        playItem(m.index + 1, 0)
-    else
-        m.top.navigate = { action: "back" }
+' Shows / updates / hides the "Up next" card from the playback position.
+sub updateUpNext()
+    seconds = UpNextCountdown(m.video.position, m.video.duration, hasNext())
+    if seconds < 0
+        m.upNext.visible = false
+        return
     end if
+    if not m.upNext.visible
+        m.upNext.heading = "Up next"
+        m.upNext.title = m.items[m.index + 1].label
+        m.upNext.visible = true
+    end if
+    m.upNext.seconds = seconds
+end sub
+
+' The current item counts as finished; start the next one.
+sub playNextNow()
+    m.upNext.visible = false
+    saveProgress(true)
+    playItem(m.index + 1, 0)
 end sub
