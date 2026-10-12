@@ -72,6 +72,23 @@ function UpNextCountdown(position as Float, duration as Float, somethingFollows 
     return seconds
 end function
 
+' Keeps a seek target inside the video: not before 0, and not in the last
+' 2 seconds (seeking to the very end would just finish the video).
+function ClampSeek(target as Float, duration as Float) as Float
+    if duration > 0 and target > duration - 2 then target = duration - 2
+    if target < 0 then target = 0.0
+    return target
+end function
+
+' Holding ◀◀ / ▶▶ scrubs faster the longer the button is held. Returns how
+' many seconds of video to move per scrub tick (one tick = 0.1 s):
+'   first 2 s held: 3 s per tick (30x)   next 2 s: 6 s (60x)   then 12 s (120x)
+function ScrubStep(heldSeconds as Float) as Integer
+    if heldSeconds < 2 then return 3
+    if heldSeconds < 4 then return 6
+    return 12
+end function
+
 ' ----------------------------------------------------------------------------
 ' Shows
 ' ----------------------------------------------------------------------------

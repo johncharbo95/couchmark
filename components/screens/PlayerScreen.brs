@@ -7,7 +7,10 @@
 '                     "Up next" card shows: play the next item now
 '   Left / Right      back / forward 10 s   (on the button row: move)
 '   ↺ Instant replay  back 10 s
-'   ◀◀ / ▶▶           back / forward 30 s
+'   ◀◀ / ▶▶ (click)   back / forward exactly 30 s (quick clicks add up)
+'   ◀◀ / ▶▶ (hold)    scrub: the video pauses, the progress bar moves
+'                     faster the longer you hold, and playback continues
+'                     from there when you let go
 '   Up / Down         show controls; Down moves to the button row
 '   Back              stop and return (position is saved)
 ' Buttons: [Previous] [Back 10] [Play/Pause] [Forward 10] [Next]
@@ -19,8 +22,10 @@
 '     point cleared.
 '   - Less than 15 s in: no resume point.
 '   - During the last 10 s of an item that has a successor, the "Up next"
-'     card counts down (UpNextCountdown in lib/Library.brs). When the item
-'     ends, the next one starts straight away.
+'     card counts down (UpNextCountdown in lib/Library.brs). From the moment
+'     it appears, the item counts as finished (watched; for a movie part,
+'     resume at the next part), even if you stop during the credits.
+'     When the item ends, the next one starts straight away.
 ' ============================================================================
 
 sub init()
@@ -43,6 +48,15 @@ sub init()
     m.video.ObserveField("state", "onVideoStateChange")
     m.video.ObserveField("position", "onPositionChange")
     m.hideTimer.ObserveField("fire", "onHideTimer")
+    m.holdTimer = m.top.FindNode("holdTimer")
+    m.holdTimer.ObserveField("fire", "onHoldTimer")
+    m.scrubTimer = m.top.FindNode("scrubTimer")
+    m.scrubTimer.ObserveField("fire", "onScrubTick")
+    m.scrubClock = CreateObject("roTimespan")
+
+    ' Seek to the exact time asked for, not the nearest keyframe (which can
+    ' be several seconds earlier), where this Roku supports it.
+    if m.video.HasField("seekMode") then m.video.seekMode = "accurate"
     m.top.ObserveField("focusedChild", "onFocusedChildChange")
 
     m.started = false
@@ -50,6 +64,9 @@ sub init()
     m.pendingSeek = -1      ' target of a seek that hasn't finished yet
     m.focusRow = "bar"      ' "bar" (scrubber) or "buttons"
     m.button = 0            ' focused button index
+    m.seekDirection = 0     ' ◀◀ = -1, ▶▶ = 1 while the button is down
+    m.scrubbing = false     ' holding ◀◀ / ▶▶
+    m.itemCompleted = false ' "Up next" appeared: this item counts as finished
 end sub
 
 sub onFocusedChildChange()
@@ -65,6 +82,7 @@ sub playItem(index as Integer, startPos as Integer)
     m.index = index
     m.lastSavedAt = startPos
     m.pendingSeek = -1
+    m.itemCompleted = false
     item = m.items[index]
 
     content = CreateObject("roSGNode", "ContentNode")
@@ -93,8 +111,17 @@ end function
 ' ----------------------------------------------------------------------------
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
+    ' ◀◀ / ▶▶ need the release too, to tell a click from a hold.
+    if key = "rewind" or key = "fastforward"
+        print "[Player] key "; key; " press="; press
+        if press then seekKeyDown(key) else seekKeyUp()
+        return true
+    end if
+
     if not press then return false
     print "[Player] key "; key
+    ' Any other key ends a scrub (in case the release was missed).
+    if m.scrubbing then seekKeyUp()
 
     ' OK on the "Up next" card plays the next item now (unless OK is meant
     ' for a highlighted button in the controls).
@@ -109,10 +136,6 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         togglePause()
     else if key = "replay"
         seekBy(-10)
-    else if key = "rewind"
-        seekBy(-30)
-    else if key = "fastforward"
-        seekBy(30)
     else if key = "OK"
         if m.controls.visible and m.focusRow = "buttons"
             pressButton(m.buttons[m.button].id)
@@ -152,17 +175,68 @@ end sub
 ' because each one starts from the previous target, not the (lagging)
 ' playback position.
 sub seekBy(seconds as Integer)
-    base = m.video.position
-    if m.pendingSeek >= 0 then base = m.pendingSeek
-    target = base + seconds
-    duration = m.video.duration
-    if duration > 0 and target > duration - 2 then target = duration - 2
-    if target < 0 then target = 0
-
+    target = ClampSeek(currentTarget() + seconds, m.video.duration)
     m.pendingSeek = target
     m.video.seek = target
     showControls()
     updateBar(target)
+end sub
+
+' Where playback is, or is about to be after a seek still in progress.
+function currentTarget() as Float
+    if m.pendingSeek >= 0 then return m.pendingSeek
+    return m.video.position
+end function
+
+' ----------------------------------------------------------------------------
+' ◀◀ / ▶▶: click = 30 s, hold = scrub
+' ----------------------------------------------------------------------------
+
+sub seekKeyDown(key as String)
+    if m.scrubbing then return   ' already scrubbing
+    m.seekDirection = 1
+    if key = "rewind" then m.seekDirection = -1
+    m.holdTimer.control = "stop"
+    m.holdTimer.control = "start"
+end sub
+
+sub seekKeyUp()
+    m.holdTimer.control = "stop"
+    if m.scrubbing
+        ' Let go after holding: jump to where the bar is and carry on.
+        m.scrubTimer.control = "stop"
+        m.scrubbing = false
+        m.pendingSeek = m.scrubTarget
+        m.video.seek = m.scrubTarget
+        if m.resumeAfterScrub then m.video.control = "resume"
+        showControls()
+    else if m.seekDirection <> 0
+        ' A click: exactly 30 seconds.
+        seekBy(30 * m.seekDirection)
+    end if
+    m.seekDirection = 0
+end sub
+
+' Still held after 0.4 s: start scrubbing.
+sub onHoldTimer()
+    if m.seekDirection = 0 then return
+    m.scrubbing = true
+    m.scrubTarget = currentTarget()
+    m.resumeAfterScrub = (m.video.state <> "paused")
+    m.video.control = "pause"
+    m.scrubClock.Mark()
+    showControls()
+    onScrubTick()
+    m.scrubTimer.control = "start"
+end sub
+
+sub onScrubTick()
+    if not m.scrubbing then return
+    secondsPerTick = ScrubStep(m.scrubClock.TotalMilliseconds() / 1000)
+    m.scrubTarget = ClampSeek(m.scrubTarget + m.seekDirection * secondsPerTick, m.video.duration)
+    updateBar(m.scrubTarget)
+    speed = (secondsPerTick * 10).ToStr() + "x"
+    if m.seekDirection < 0 then m.buttonLabel.text = "Rewinding  " + speed else m.buttonLabel.text = "Fast-forwarding  " + speed
 end sub
 
 sub leave()
@@ -323,7 +397,7 @@ sub onPositionChange()
 
     ' A seek has finished once playback reaches its target.
     if m.pendingSeek >= 0 and Abs(position - m.pendingSeek) < 2 then m.pendingSeek = -1
-    if m.controls.visible then updateBar(-1)
+    if m.controls.visible and not m.scrubbing then updateBar(-1)
     updateUpNext()
 
     if Abs(position - m.lastSavedAt) >= 10
@@ -334,6 +408,8 @@ end sub
 
 ' finished = true when the current item played to the end.
 sub saveProgress(finished as Boolean)
+    ' Once "Up next" has appeared, the item counts as finished.
+    if m.itemCompleted then finished = true
     position = Int(m.video.position)
     duration = Int(m.video.duration)
     if duration <= 0 and not finished then return   ' not loaded yet / failed
@@ -391,6 +467,10 @@ sub onVideoStateChange()
     state = m.video.state
     print "[Player] state "; state
 
+    ' A seek has finished once playback settles; from then on show the real
+    ' position (it may differ slightly from the target on some videos).
+    if (state = "playing" or state = "paused") and not m.scrubbing then m.pendingSeek = -1
+
     m.spinner.visible = (state = "buffering")
     if m.spinner.visible then m.spinner.control = "start" else m.spinner.control = "stop"
     if m.controls.visible then showControls()   ' play/pause icon, auto-hide
@@ -427,6 +507,11 @@ sub updateUpNext()
         m.upNext.heading = "Up next"
         m.upNext.title = m.items[m.index + 1].label
         m.upNext.visible = true
+    end if
+    if not m.itemCompleted
+        ' From here on this episode / part is done (watched ✓).
+        m.itemCompleted = true
+        saveProgress(true)
     end if
     m.upNext.seconds = seconds
 end sub

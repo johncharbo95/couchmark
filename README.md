@@ -101,7 +101,7 @@ A show's page has a **Continue** button at the top, seasons on the left, and tha
 - **Next: S02E06** if you finished the last one
 - **Start watching S01E01** if you've never watched it
 
-Use Left/Right to move between seasons and episodes, and Up to get back to the Continue button. Episodes show ✓ when watched and a blue bar with the time left when partly watched. During the last 10 seconds of an episode, an **Up next** card appears in the corner and counts down. Press **OK** to start the next episode right away, or let it finish and the next one starts by itself, including into the next season. Pause, rewind and the other buttons keep working while the card is showing; rewinding hides it.
+Use Left/Right to move between seasons and episodes, and Up to get back to the Continue button. Episodes show ✓ when watched and a blue bar with the time left when partly watched. During the last 10 seconds of an episode, an **Up next** card appears in the corner and counts down. From that moment the episode counts as watched ✓, even if you stop during the credits. Press **OK** to start the next episode right away, or let it finish and the next one starts by itself, including into the next season. Pause, rewind and the other buttons keep working while the card is showing; rewinding hides it.
 
 Episode files are ordered by their `S01E02` / `1x02` code when they have one, otherwise naturally by name. Video files placed directly in a show folder (no season folder) appear under "Episodes".
 
@@ -142,7 +142,8 @@ A short message confirms each change. Marking episodes watched moves the show's 
 | **OK** or **Play/Pause** | Pause / resume (shows the controls) |
 | **Left / Right** | Back / forward 10 seconds |
 | **↺** (instant replay) | Back 10 seconds |
-| **◀◀ / ▶▶** | Back / forward 30 seconds (press repeatedly to go further) |
+| **◀◀ / ▶▶** (click) | Back / forward exactly 30 seconds. Quick clicks add up: three clicks = 90 seconds. |
+| **◀◀ / ▶▶** (hold) | Scrub: the picture pauses and the progress bar moves, faster the longer you hold (30x, then 60x, then 120x). Let go to continue from there. |
 | **Down** | Move to the button row: Previous episode · Back 10 · Play/Pause · Forward 10 · Next episode. Use Left/Right to choose and OK to press. |
 | **Up** | Back to the progress bar |
 | **Back** | Stop and return. Your position is saved. |

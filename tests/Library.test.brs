@@ -10,7 +10,18 @@ sub Main()
     testMarkMovie()
     testMarkEpisodes()
     testUpNextCountdown()
+    testSeeking()
     finishTests()
+end sub
+
+sub testSeeking()
+    assertEqual(ClampSeek(-25, 1320), 0, "not before the start")
+    assertEqual(ClampSeek(1330, 1320), 1318, "not past the last 2 seconds")
+    assertEqual(ClampSeek(600, 1320), 600, "inside: unchanged")
+    assertEqual(ClampSeek(600, 0), 600, "length unknown: only the start is clamped")
+    assertEqual(ScrubStep(0.5), 3, "just started holding: 30x")
+    assertEqual(ScrubStep(2.5), 6, "held 2 s: 60x")
+    assertEqual(ScrubStep(10), 12, "held long: 120x")
 end sub
 
 sub testUpNextCountdown()

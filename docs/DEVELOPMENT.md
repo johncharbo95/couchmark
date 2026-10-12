@@ -170,9 +170,16 @@ OK on an episode with a resume point opens ResumeDialog. "Start over" restarts *
 - **movie:** the items are the movie's parts.
 - **show:** the items are *every* episode of the show in watching order, so "Up next" and the Next button carry on into the next season.
 
-The Video node's own UI is disabled (`enableUI="false"`), and the screen itself keeps focus rather than the Video node, so every key reaches `PlayerScreen.onKeyEvent`. The overlay has a title, a progress bar ("scrubber") with the elapsed time on the left and `-time left / total` on the right (`FormatRemainingOfTotal()`), and a button row that's built at runtime. Previous and Next only appear when there is more than one item. Focus is either on the bar (Left/Right seek 10 s) or on the buttons (Left/Right move). ↺ (`replay`) seeks −10 s and ◀◀/▶▶ (`rewind`/`fastforward`) seek ±30 s. Repeated seeks add up: each one starts from the previous target (`m.pendingSeek`), not from the playback position, which lags behind. A Timer hides the controls after 3 s unless playback is paused.
+The Video node's own UI is disabled (`enableUI="false"`), and the screen itself keeps focus rather than the Video node, so every key reaches `PlayerScreen.onKeyEvent`. The overlay has a title, a progress bar ("scrubber") with the elapsed time on the left and `-time left / total` on the right (`FormatRemainingOfTotal()`), and a button row that's built at runtime. Previous and Next only appear when there is more than one item. Focus is either on the bar (Left/Right seek 10 s) or on the buttons (Left/Right move). ↺ (`replay`) seeks −10 s.
 
-**Up next:** on every position update, `UpNextCountdown(position, duration, hasNext())` in `lib/Library.brs` (unit-tested) returns the seconds left during the last 10 s of an item that has a successor, or −1. `updateUpNext()` then shows, updates or hides the card. The card has no key handling of its own. The player keeps the remote: **OK** while the card shows calls `playNextNow()`, which saves the current item as finished and starts the next one, unless OK is meant for a highlighted button. **Play/Pause** always pauses, and seeking back hides the card. When an item finishes, the next one starts immediately. After the last item, the player closes.
+**◀◀/▶▶ (`rewind`/`fastforward`)** are handled on press *and* release. A press starts `holdTimer` (0.4 s):
+
+- **Release before it fires (a click):** `seekBy(±30)`. Quick clicks add up, because each seek starts from the previous target (`m.pendingSeek`, via `currentTarget()`), not from the playback position, which lags behind.
+- **It fires (a hold):** scrubbing. The video pauses, `scrubTimer` moves `m.scrubTarget` every 0.1 s by `ScrubStep(heldSeconds)` (3, 6, then 12 s per tick), clamped by `ClampSeek()`, and the bar shows the target. On release it seeks once and resumes. Any other key also ends a scrub, in case a release event is lost.
+
+Seeking: Roku normally lands on the nearest keyframe, which can be seconds before the target. The player sets `seekMode = "accurate"` when the Video node has that field. `m.pendingSeek` is cleared as soon as playback settles (`playing`/`paused`), so the bar never keeps showing a target the picture hasn't reached. A Timer hides the controls after 3 s unless playback is paused.
+
+**Up next:** once the card appears, the item counts as finished (`m.itemCompleted`: saved as watched, or as "resume at the next part" for movies). Later saves keep it that way, even if the user stops during the credits. On every position update, `UpNextCountdown(position, duration, hasNext())` in `lib/Library.brs` (unit-tested) returns the seconds left during the last 10 s of an item that has a successor, or −1. `updateUpNext()` then shows, updates or hides the card. The card has no key handling of its own. The player keeps the remote: **OK** while the card shows calls `playNextNow()`, which saves the current item as finished and starts the next one, unless OK is meant for a highlighted button. **Play/Pause** always pauses, and seeking back hides the card. When an item finishes, the next one starts immediately. After the last item, the player closes.
 
 When the controls hide, the highlight resets to the scrubber and the Play/Pause button (`m.playPauseButton`), so a stale highlight on Next can't be pressed by accident. Every key is logged (`[Player] key …`) to help diagnose remote-control problems. Playback errors (usually an unsupported codec) replace the player with a MessageScreen that shows the Video node's `errorMsg`.
 
@@ -270,7 +277,7 @@ Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay 
 | `MediaTypes.test.brs` | supported/junk files, extensions, episode-name cleanup |
 | `Format.test.brs` | `1:02:14`, "23 min" |
 | `Progress.test.brs` | registry encoding round trips, titles with `\|`, resume-point limit, newest-first list, pruning to the size budget |
-| `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text, mark watched/unwatched (movies, episodes, seasons, "continue" never moves backwards) |
+| `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text, mark watched/unwatched (movies, episodes, seasons, "continue" never moves backwards), Up next countdown, seek clamping and scrub speeds |
 | `MediaDate.test.brs` | MP4/MOV `mvhd` dates on real files (`tests/fixtures/`), fallback to the file date |
 | `Transitions.test.brs` | every effect's start/end values, wipe keeps the picture still, random never picks none |
 | `Settings.test.brs` | defaults, save/load, damaged values, next/previous with wrap-around, labels |
@@ -298,6 +305,8 @@ Directives at the top tell `tests/run.js` what to load:
 - `' @fixture path`: a file whose bytes become available to the Files double (call `loadFixtures()` first).
 
 Run one file with `npm test -- Progress`.
+
+A test file fails if any check fails, if it never reaches `finishTests()`, or if `brs` prints a runtime error such as `File.brs(80,4-10): Attempting to return …`. `brs` sometimes reports those and carries on, so the runner scans the output for them.
 
 `tests/bsconfig.json` makes the editor treat `tests/` as its own project. Otherwise it would flag every call into app code as unknown, because those files are only combined by `tests/run.js`.
 

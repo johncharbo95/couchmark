@@ -73,5 +73,9 @@
 
         <!-- Hides the controls after a few seconds without key presses. -->
         <Timer id="hideTimer" duration="3" repeat="false" />
+        <!-- ◀◀ / ▶▶: held longer than this = scrub instead of a 30 s jump. -->
+        <Timer id="holdTimer" duration="0.4" repeat="false" />
+        <!-- While scrubbing, moves the target every 0.1 s. -->
+        <Timer id="scrubTimer" duration="0.1" repeat="true" />
     </children>
 </component>
