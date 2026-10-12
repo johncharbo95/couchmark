@@ -14,7 +14,8 @@
 //                                            through the File double
 //
 // The test is assembled in out/tests/<name>/ and run with the `brs`
-// interpreter. A test fails if it prints a "FAIL:" line or never reaches
+// interpreter. A test fails if it prints a "FAIL:" line, prints a brs
+// runtime error ("File.brs(12,4-10): ..."), or never reaches
 // finishTests() (e.g. it crashed).
 // ============================================================================
 
@@ -84,7 +85,12 @@ function runTest(file) {
 
     const result = spawnSync(process.execPath, [brsCli, ...files], { encoding: "utf8" });
     const output = (result.stdout || "") + (result.stderr || "");
-    const failures = output.split(/\r?\n/).filter((l) => l.startsWith("FAIL:"));
+    // Assertion failures, plus interpreter errors such as
+    // "Library.brs(80,4-10): Attempting to return ..." (brs may print these
+    // and carry on, so they must not be mistaken for a pass).
+    const failures = output
+        .split(/\r?\n/)
+        .filter((l) => l.startsWith("FAIL:") || /\.brs\(\d+,\d+-\d+\):/.test(l));
     const finished = output.match(/^RESULT:\s+(\d+)\s+checks/m);
     const ok = result.status === 0 && finished && failures.length === 0;
 
