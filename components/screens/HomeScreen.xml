@@ -14,11 +14,17 @@
     <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Library.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/BuildInfo.brs" />
 
     <children>
         <!-- Hero artwork, faded into the background on the left/bottom. -->
         <Poster id="heroArt" translation="[700, 0]" width="1220" height="686" loadWidth="1220" loadHeight="686" loadDisplayMode="scaleToZoom" opacity="0.7" />
         <Poster uri="pkg:/images/fade.png" translation="[700, 0]" width="1220" height="686" />
+
+        <!-- Development builds only: commit + message (lib/BuildInfo.brs). -->
+        <Label id="buildInfo" translation="[96, 16]" width="1728" color="0xF5B942FF">
+            <Font role="font" uri="font:SystemFontFile" size="22" />
+        </Label>
 
         <Label id="appTitle" text="COUCHMARK" translation="[96, 56]" color="0x3D7EFFFF">
             <Font role="font" uri="font:BoldSystemFontFile" size="30" />

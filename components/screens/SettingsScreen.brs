@@ -74,6 +74,11 @@ sub onItemFocused()
         about: "Open source, MIT license. Plays media from USB drives; nothing leaves your TV."
     }
     m.hint.text = hints[row.key]
+    ' Development builds: also show which commit is running.
+    if row.key = "about"
+        build = BuildInfoText(ReadBuildInfo())
+        if build <> "" then m.hint.text = m.hint.text + Chr(10) + Chr(10) + build
+    end if
 end sub
 
 function focusedRow() as Dynamic

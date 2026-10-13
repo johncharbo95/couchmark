@@ -10,6 +10,7 @@
     <script type="text/brightscript" uri="pkg:/components/lib/Settings.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Transitions.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/BuildInfo.brs" />
 
     <children>
         <Label text="Settings" translation="[155, 90]">

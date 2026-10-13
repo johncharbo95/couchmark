@@ -9,6 +9,21 @@ This guide is for anyone changing the code. No prior Roku experience is assumed.
 3. Copy `.env.example` to `.env` and fill in `ROKU_HOST` and `ROKU_PASSWORD`. `.env` is git-ignored; never commit credentials.
 4. Press **F5** (launch config *"Couchmark: deploy & debug on Roku"*). The extension zips the app, sideloads it, and attaches the debugger. `print` output appears in the Debug Console.
 
+### Which commit is on the TV?
+
+Development builds show an amber line at the top of the home screen, and under **Settings → About**:
+
+```
+DEV  9ad7f63  Player: exact 30 s skips …  (+ uncommitted changes)  ·  dev  ·  built 2026-10-12 11:42
+```
+
+How it works:
+
+- Before every F5 launch, VS Code runs the task *couchmark: build info* (`.vscode/tasks.json`, the `preLaunchTask` in `launch.json`).
+- That task runs `tools/build-info.js`, which writes `build-info.json` (git-ignored) with the commit, message, branch, an uncommitted-changes flag and the time.
+- The launch config's `files` list includes that file. `bsconfig.json` doesn't, so `npm run package` and GitHub releases never contain it.
+- At startup, `ReadBuildInfo()` (`lib/BuildInfo.brs`) reads `pkg:/build-info.json`. A missing file means a release build, and nothing is shown.
+
 ### Linting and tests
 
 The extension lints as you type using `bsconfig.json`. From a terminal (requires Node.js), run `npm install` once, then:
@@ -85,10 +100,11 @@ components/
     NaturalSort.brs       Natural sort keys, S01E02 / 1x02 detection
     MediaTypes.brs        Supported extensions, junk-file filter, stream formats
     Format.brs            Time formatting (1:02:14, "23 min")
+    BuildInfo.brs         Development builds: read and format build-info.json
     Text.brs              Shared user-facing strings
 images/                   Icons, splash screens, player icons, fade, ✓ badge
 tests/                    Unit tests run off-device with brs (not packaged), see Testing
-tools/                    Dev scripts (not packaged): placeholder images, version check
+tools/                    Dev scripts (not packaged): placeholder images, version check, build info
 .github/workflows/        CI (lint + tests + zip on every push/PR) and Release (on v* tags)
 docs/                     Documentation (not packaged)
 ```
@@ -275,7 +291,8 @@ Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay 
 |---|---|
 | `NaturalSort.test.brs` | "2" before "10", case, `S01E02` / `1x02` codes |
 | `MediaTypes.test.brs` | supported/junk files, extensions, episode-name cleanup |
-| `Format.test.brs` | `1:02:14`, "23 min" |
+| `Format.test.brs` | `1:02:14`, "23 min", "-29:55 / 44:00" |
+| `BuildInfo.test.brs` | the DEV line, uncommitted-changes flag, nothing shown for release builds |
 | `Progress.test.brs` | registry encoding round trips, titles with `\|`, resume-point limit, newest-first list, pruning to the size budget |
 | `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text, mark watched/unwatched (movies, episodes, seasons, "continue" never moves backwards), Up next countdown, seek clamping and scrub speeds |
 | `MediaDate.test.brs` | MP4/MOV `mvhd` dates on real files (`tests/fixtures/`), fallback to the file date |

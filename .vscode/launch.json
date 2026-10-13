@@ -10,12 +10,17 @@
             "host": "${env:ROKU_HOST}",
             "password": "${env:ROKU_PASSWORD}",
             "rootDir": "${workspaceFolder}",
+            // Records the current commit (build-info.json) before deploying.
+            "preLaunchTask": "couchmark: build info",
             // Only these files are zipped and sideloaded to the TV.
+            // build-info.json is for development builds only (it is not in
+            // bsconfig.json, so `npm run package` / releases never include it).
             "files": [
                 "manifest",
                 "source/**/*",
                 "components/**/*",
-                "images/**/*"
+                "images/**/*",
+                "build-info.json"
             ],
             "stopOnEntry": false
         }

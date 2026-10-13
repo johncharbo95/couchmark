@@ -21,6 +21,7 @@ sub init()
     m.heroTitle = m.top.FindNode("heroTitle")
     m.heroSubtitle = m.top.FindNode("heroSubtitle")
     m.loading = m.top.FindNode("loading")
+    m.top.FindNode("buildInfo").text = BuildInfoText(ReadBuildInfo())
     m.toast = m.top.FindNode("toast")
 
     m.rows.ObserveField("rowItemSelected", "onTileSelected")

@@ -3,6 +3,8 @@
 
 # Build / deploy output from the BrightScript extension and brighterscript
 out/
+# Written by tools/build-info.js before each VS Code launch
+build-info.json
 .roku-deploy-staging/
 *.zip
 
