@@ -8,6 +8,9 @@ This guide is for anyone changing the code. No prior Roku experience is assumed.
 2. Install [VS Code](https://code.visualstudio.com/) and the **BrightScript Language** extension (`RokuCommunity.brightscript`). VS Code suggests it when you open this folder.
 3. Copy `.env.example` to `.env` and fill in `ROKU_HOST` and `ROKU_PASSWORD`. `.env` is git-ignored; never commit credentials.
 4. Press **F5** (launch config *"Couchmark: deploy & debug on Roku"*). The extension zips the app, sideloads it, and attaches the debugger. `print` output appears in the Debug Console.
+5. Or, without the debugger: `npm run deploy` (`tools/deploy.js`) installs the current code from a terminal.
+
+> **Never delete the dev channel to install** (roku-deploy's `deleteInstalledChannel`, the extension's `deleteDevChannelBeforeInstall`, or **Delete** on the Roku's web page). Deleting it also erases its registry: all saved watch progress and settings. Both deploy paths install over the existing app, which keeps them.
 
 ### Which commit is on the TV?
 

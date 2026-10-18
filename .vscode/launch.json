@@ -22,6 +22,9 @@
                 "images/**/*",
                 "build-info.json"
             ],
+            // Install over the old app. Deleting it first would also erase its
+            // registry: all saved watch progress and settings.
+            "deleteDevChannelBeforeInstall": false,
             "stopOnEntry": false
         }
     ]
