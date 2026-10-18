@@ -13,6 +13,7 @@
 '   { type: "browse", id: "movies" | "shows" | "other" | "settings" }
 ' ✱ (options) on a movie tile marks it watched / unwatched; on a Continue
 ' Watching tile it marks that movie / episode watched, so the row moves on.
+' Play/Pause on a Continue Watching or movie tile starts playing it.
 ' ============================================================================
 
 sub init()
@@ -177,12 +178,30 @@ function tileAt(position as Dynamic) as Dynamic
 end function
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
-    if press and key = "options"
+    if not press then return false
+    if key = "options"
         tile = tileAt(m.rows.rowItemFocused)
         if tile <> invalid then markTile(tile)
         return true
+    else if key = "play"
+        tile = tileAt(m.rows.rowItemFocused)
+        if tile <> invalid then return playTile(tile)
     end if
     return false
+end function
+
+' Play/Pause starts a Continue Watching tile or a movie right away
+' (a movie resumes where you left off). Other tiles ignore it.
+function playTile(tile as Object) as Boolean
+    action = tile.action
+    if action.type = "play"
+        m.top.navigate = { screen: "PlayerScreen", fields: action.player }
+    else if action.type = "movie"
+        PlayMovie(tile.title, action.path)
+    else
+        return false
+    end if
+    return true
 end function
 
 sub markTile(tile as Object)

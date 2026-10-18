@@ -8,6 +8,7 @@
 ' Highlighting a season fills the episode list with its episodes.
 ' ✱ marks the highlighted episode / whole season / Continue episode as
 ' watched or unwatched (ToggleEpisodesWatched in lib/Library.brs).
+' Play/Pause plays the highlighted episode (resuming) or Continue.
 ' Everything is refreshed when the screen reappears after playback.
 ' ============================================================================
 
@@ -209,6 +210,9 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
     if key = "options"
         toggleWatched()
         return true
+    else if key = "play"
+        playFocused()
+        return true
     end if
 
     if m.area = "continue" and key = "down"
@@ -273,6 +277,21 @@ end function
 
 sub onContinueSelected()
     m.top.navigate = { screen: "PlayerScreen", fields: playerFields(m.target.index, m.target.pos) }
+end sub
+
+' Play/Pause: Continue plays like OK; an episode starts right away, from
+' its resume point if it has one (no Resume / Start over dialog).
+sub playFocused()
+    if m.show = invalid or m.show.items.Count() = 0 then return
+    if m.area = "continue"
+        onContinueSelected()
+    else if m.area = "episodes"
+        index = m.show.seasons[m.seasonIndex].first + m.episodes.itemFocused
+        startPos = 0
+        partial = ProgressFindPartial(m.record, m.show.items[index].id)
+        if partial <> invalid then startPos = partial.pos
+        m.top.navigate = { screen: "PlayerScreen", fields: playerFields(index, startPos) }
+    end if
 end sub
 
 sub onEpisodeSelected()

@@ -136,4 +136,9 @@ sub testMovies()
     assertEqual(MovieResumeText(record), "Part 2 of 2  ·  45 min left", "resume text")
     assertEqual(MovieBadge(invalid).badge, "", "never played")
     assertEqual(MovieBadge({ part: 0, parts: 1, pos: 0, dur: 0, watched: true }).badge, "watched", "finished")
+
+    assertEqual(MovieStartPoint(record, 2), { index: 1, pos: 900 }, "Play resumes")
+    assertEqual(MovieStartPoint(record, 1), { index: 0, pos: 0 }, "resume part gone: from the start")
+    assertEqual(MovieStartPoint(invalid, 1), { index: 0, pos: 0 }, "never played: from the start")
+    assertEqual(MovieStartPoint({ part: 0, parts: 1, pos: 0, dur: 0, watched: true }, 1), { index: 0, pos: 0 }, "finished: from the start")
 end sub

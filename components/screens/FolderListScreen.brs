@@ -4,7 +4,7 @@
 '
 '   1. On first focus, scan the folder(s) for subfolders.
 '   2. OK opens MovieScreen or ShowScreen. On a movie, ✱ marks it watched /
-'      unwatched.
+'      unwatched, and Play/Pause starts it (resuming).
 '   Other: the first row plays a slideshow of this folder's photos and
 '   videos; the other rows open subfolders (another FolderListScreen).
 '   Movie badges (✓ / progress bar) are refreshed whenever the screen
@@ -128,6 +128,10 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         else if m.top.kind = "shows"
             m.toast.message = "Open the show to mark episodes as watched"
         end if
+        return true
+    else if press and key = "play" and m.list.content <> invalid and m.top.kind = "movies"
+        item = m.list.content.GetChild(m.list.itemFocused)
+        if item <> invalid then PlayMovie(item.title, item.url)
         return true
     end if
     return false

@@ -89,6 +89,19 @@ The home screen works like Netflix. Up/Down moves between rows, Left/Right scrol
 
 Back on the home screen exits Couchmark.
 
+### Play/Pause to start right away
+
+Press **Play/Pause** (instead of OK) on a movie or episode to start it straight away, without opening its page:
+
+| Where | What Play/Pause does |
+|---|---|
+| A **Continue Watching** tile | Resumes it (same as OK) |
+| A movie (home row, A–Z list, or any button on the movie's page) | Resumes where you stopped, or plays from the beginning |
+| An episode (show page) | Plays it, resuming where you stopped. No "Resume / Start over" question; press OK for that. |
+| The **Continue** button (show page) | Same as OK |
+
+On a show tile, a season or the Browse row, Play/Pause does nothing.
+
 ### Movies
 
 A movie's page offers **Resume** and **Play from beginning** (or just **Play**). If a movie folder holds several video files, they play one after another as parts. During the last 10 seconds of a part, an **Up next** card counts down: press **OK** to start the next part right away, or let it finish and the next part starts by itself.

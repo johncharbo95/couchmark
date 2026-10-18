@@ -34,6 +34,13 @@ function MovieFraction(record as Object) as Float
     return (record.part + partFraction) / parts
 end function
 
+' Where Play starts a movie with partCount parts: { index, pos }. Its resume
+' point if it has one (and that part still exists), otherwise the start.
+function MovieStartPoint(record as Dynamic, partCount as Integer) as Object
+    if MovieInProgress(record) and record.part < partCount then return { index: record.part, pos: record.pos }
+    return { index: 0, pos: 0 }
+end function
+
 ' What ✱ (mark watched / unwatched) does to a movie: "unwatch" when it's
 ' finished (✓), otherwise "watch" (also when it's partly watched).
 function MovieToggleAction(record as Dynamic) as String

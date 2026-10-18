@@ -3,6 +3,7 @@
 '
 ' On first focus, lists the movie's video files ("parts"), then shows
 ' Resume / Play from beginning, and Mark as watched / unwatched (also on ✱).
+' Play/Pause on any button resumes (or plays from the start).
 ' Refreshes when it reappears after playback.
 ' ============================================================================
 
@@ -106,16 +107,15 @@ sub onButtonSelected()
         return
     end if
 
-    startIndex = 0
-    startPos = 0
-    if id = "resume"
-        startIndex = m.record.part
-        startPos = m.record.pos
-    end if
+    start = { index: 0, pos: 0 }
+    if id = "resume" then start = MovieStartPoint(m.record, m.parts.Count())
+    play(start)
+end sub
 
+sub play(start as Object)
     m.top.navigate = {
         screen: "PlayerScreen"
-        fields: { kind: "movie", title: m.top.title, items: MoviePlayerItems(m.parts), startIndex: startIndex, startPos: startPos }
+        fields: { kind: "movie", title: m.top.title, items: MoviePlayerItems(m.parts), startIndex: start.index, startPos: start.pos }
     }
 end sub
 
@@ -129,8 +129,13 @@ sub toggleWatched()
 end sub
 
 function onKeyEvent(key as String, press as Boolean) as Boolean
-    if press and key = "options"
+    if not press then return false
+    if key = "options"
         toggleWatched()
+        return true
+    else if key = "play"
+        ' Play/Pause on any button: resume if possible, else from the start.
+        if m.parts <> invalid and m.parts.Count() > 0 then play(MovieStartPoint(m.record, m.parts.Count()))
         return true
     end if
     return false

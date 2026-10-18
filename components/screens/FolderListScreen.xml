@@ -21,6 +21,7 @@
     <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Library.brs" />
+    <script type="text/brightscript" uri="PlayMovie.brs" />
 
     <children>
         <Label id="titleLabel" translation="[155, 90]" width="1200">

@@ -76,6 +76,7 @@ components/
     SlideshowScreen       Dated photo/video slideshow with preloading and transitions
     SettingsScreen        Photo duration, transition, speed, clear history, version
     ResumeDialog          "Resume from … / Start over" (episodes)
+    PlayMovie.brs         Play/Pause on a movie tile/row: scan its parts, start the player (Home, FolderList)
     PlayerScreen          Video playback with custom controls; saves progress
     MessageScreen         Title + explanation (errors, help, placeholders)
   tasks/                  Background work (Task nodes)
@@ -258,6 +259,19 @@ The ✱ key arrives as `"options"` in `onKeyEvent`; the lists and grids don't us
 | ShowScreen | Continue / season / episode | `ToggleEpisodesWatched`, `ProgressSaveShow`, `refresh()` |
 
 Each shows a `Toast`. On-screen hints use a plain `*`, since the ✱ glyph may not exist in the Roku system font.
+
+### Play/Pause on a title
+
+Like ✱, the Play/Pause key (`"play"`) isn't used by the lists, so it reaches the screen's `onKeyEvent`. It starts playback without opening a page, resuming where possible:
+
+| Screen | Play on | Does |
+|---|---|---|
+| HomeScreen | Continue tile / movie tile | `playTile()`: the tile's ready-made player fields / `PlayMovie()` |
+| FolderListScreen | movie row | `PlayMovie()` |
+| MovieScreen | any button | `MovieStartPoint()`, then the player |
+| ShowScreen | Continue / episode | same as OK / the episode at its resume point (`ProgressFindPartial`), skipping ResumeDialog |
+
+Home and the A–Z list only know a movie's folder, so `PlayMovie()` (in `screens/PlayMovie.brs`, included by both screens) runs FolderScanTask in `"videos"` mode behind the loading overlay, then navigates to the player. `MovieStartPoint(record, partCount)` in `lib/Library.brs` (unit-tested) returns the resume point `{ index, pos }`, or the start if there is none or that part no longer exists.
 
 ### Settings screen
 
