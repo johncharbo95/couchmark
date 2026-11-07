@@ -87,6 +87,17 @@ function ClampSeek(target as Float, duration as Float) as Float
     return target
 end function
 
+' A seek keeps the play/pause state the video had before it: seeking while
+' paused stays paused, seeking while playing keeps playing. The Roku may
+' change that state while seeking, so once the seek settles into
+' `state` ("playing" or "paused") this returns what to tell the video:
+' "pause", "resume", or "" (already right).
+function SeekSettleControl(wasPaused as Boolean, state as String) as String
+    if wasPaused and state = "playing" then return "pause"
+    if not wasPaused and state = "paused" then return "resume"
+    return ""
+end function
+
 ' Holding ◀◀ / ▶▶ scrubs faster the longer the button is held. Returns how
 ' many seconds of video to move per scrub tick (one tick = 0.1 s):
 '   first 2 s held: 3 s per tick (30x)   next 2 s: 6 s (60x)   then 12 s (120x)

@@ -11,6 +11,7 @@ sub Main()
     testMarkEpisodes()
     testUpNextCountdown()
     testSeeking()
+    testSeekSettleControl()
     finishTests()
 end sub
 
@@ -22,6 +23,13 @@ sub testSeeking()
     assertEqual(ScrubStep(0.5), 3, "just started holding: 30x")
     assertEqual(ScrubStep(2.5), 6, "held 2 s: 60x")
     assertEqual(ScrubStep(10), 12, "held long: 120x")
+end sub
+
+sub testSeekSettleControl()
+    assertEqual(SeekSettleControl(true, "playing"), "pause", "was paused, Roku resumed: pause again")
+    assertEqual(SeekSettleControl(true, "paused"), "", "was paused, still paused: nothing")
+    assertEqual(SeekSettleControl(false, "paused"), "resume", "was playing, Roku paused: resume")
+    assertEqual(SeekSettleControl(false, "playing"), "", "was playing, still playing: nothing")
 end sub
 
 sub testUpNextCountdown()

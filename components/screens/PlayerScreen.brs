@@ -8,6 +8,7 @@
 '   Left / Right      back / forward 10 s   (on the button row: move)
 '   ↺ Instant replay  back 10 s
 '   ◀◀ / ▶▶ (click)   back / forward exactly 30 s (quick clicks add up)
+'   (Seeking keeps play/pause: paused stays paused, playing keeps playing.)
 '   ◀◀ / ▶▶ (hold)    scrub: the video pauses, the progress bar moves
 '                     faster the longer you hold, and playback continues
 '                     from there when you let go
@@ -62,6 +63,9 @@ sub init()
     m.started = false
     m.lastSavedAt = 0
     m.pendingSeek = -1      ' target of a seek that hasn't finished yet
+    m.seekSettling = false  ' a seek is underway: restore play/pause after it
+    m.seekBuffered = false  ' ...and the video has started buffering for it
+    m.seekWasPaused = false ' ...and the video was paused when it started
     m.focusRow = "bar"      ' "bar" (scrubber) or "buttons"
     m.button = 0            ' focused button index
     m.seekDirection = 0     ' ◀◀ = -1, ▶▶ = 1 while the button is down
@@ -82,6 +86,7 @@ sub playItem(index as Integer, startPos as Integer)
     m.index = index
     m.lastSavedAt = startPos
     m.pendingSeek = -1
+    m.seekSettling = false
     m.itemCompleted = false
     item = m.items[index]
 
@@ -163,6 +168,7 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
 end function
 
 sub togglePause()
+    m.seekSettling = false   ' the user decides play/pause from here on
     if m.video.state = "paused"
         m.video.control = "resume"
     else
@@ -173,8 +179,13 @@ end sub
 
 ' Seeks relative to the current position. Several quick presses add up,
 ' because each one starts from the previous target, not the (lagging)
-' playback position.
+' playback position. Play/pause is kept: see onVideoStateChange().
 sub seekBy(seconds as Integer)
+    if not m.seekSettling
+        m.seekSettling = true
+        m.seekBuffered = false
+        m.seekWasPaused = (m.video.state = "paused")
+    end if
     target = ClampSeek(currentTarget() + seconds, m.video.duration)
     m.pendingSeek = target
     m.video.seek = target
@@ -222,7 +233,12 @@ sub onHoldTimer()
     if m.seekDirection = 0 then return
     m.scrubbing = true
     m.scrubTarget = currentTarget()
-    m.resumeAfterScrub = (m.video.state <> "paused")
+    if m.seekSettling
+        m.resumeAfterScrub = not m.seekWasPaused   ' mid-seek: state is "buffering"
+        m.seekSettling = false
+    else
+        m.resumeAfterScrub = (m.video.state <> "paused")
+    end if
     m.video.control = "pause"
     m.scrubClock.Mark()
     showControls()
@@ -470,6 +486,15 @@ sub onVideoStateChange()
     ' A seek has finished once playback settles; from then on show the real
     ' position (it may differ slightly from the target on some videos).
     if (state = "playing" or state = "paused") and not m.scrubbing then m.pendingSeek = -1
+
+    ' The Roku may resume a paused video when it seeks (or the reverse).
+    ' Once the seek has buffered and settled, put play/pause back.
+    if m.seekSettling and state = "buffering" then m.seekBuffered = true
+    if m.seekSettling and m.seekBuffered and (state = "playing" or state = "paused")
+        m.seekSettling = false
+        control = SeekSettleControl(m.seekWasPaused, state)
+        if control <> "" then m.video.control = control
+    end if
 
     m.spinner.visible = (state = "buffering")
     if m.spinner.visible then m.spinner.control = "start" else m.spinner.control = "stop"

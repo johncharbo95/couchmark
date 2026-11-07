@@ -192,6 +192,8 @@ OK on an episode with a resume point opens ResumeDialog. "Start over" restarts *
 
 The Video node's own UI is disabled (`enableUI="false"`), and the screen itself keeps focus rather than the Video node, so every key reaches `PlayerScreen.onKeyEvent`. The overlay has a title, a progress bar ("scrubber") with the elapsed time on the left and `-time left / total` on the right (`FormatRemainingOfTotal()`), and a button row that's built at runtime. Previous and Next only appear when there is more than one item. Focus is either on the bar (Left/Right seek 10 s) or on the buttons (Left/Right move). ↺ (`replay`) seeks −10 s.
 
+**Seeking keeps play/pause.** The Roku may resume a paused video when it seeks. `seekBy()` remembers whether the video was paused (`m.seekWasPaused`, once per burst of quick presses), and `onVideoStateChange()` waits for the seek to buffer and settle into `playing` or `paused`, then applies `SeekSettleControl(wasPaused, state)` from `lib/Library.brs` (unit-tested): `"pause"`, `"resume"` or nothing. Play/Pause during a seek cancels this, since the user has chosen; so does starting a scrub, which takes over the remembered state.
+
 **◀◀/▶▶ (`rewind`/`fastforward`)** are handled on press *and* release. A press starts `holdTimer` (0.4 s):
 
 - **Release before it fires (a click):** `seekBy(±30)`. Quick clicks add up, because each seek starts from the previous target (`m.pendingSeek`, via `currentTarget()`), not from the playback position, which lags behind.
