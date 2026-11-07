@@ -16,6 +16,7 @@ Everything runs on the TV. There is no server, account, or companion app: plug i
 | Player | Netflix-style controls: 10-second skip, instant replay, previous/next episode, progress bar. | ✅ |
 | Watched marks | Mark movies, episodes or whole seasons as watched / unwatched with the ✱ button. | ✅ |
 | Other | Browse folders and play a slideshow of all photos and videos in a folder, ordered by the date they were taken. | ✅ |
+| Files | Browse the USB drive exactly as it is, folder by folder, and play any video. A fallback for when a show or movie isn't recognized. | ✅ |
 | Transitions | None, fade, slide, push, wipe, zoom, random, at three speeds. The next photo is preloaded, so there's never a black flash. | ✅ |
 | Settings | Photo duration, transition type and speed, debug logs on/off, clear watch history. | ✅ |
 | Debug logs | A daily log file on the USB drive, so you can see what happened when something goes wrong. | ✅ |
@@ -86,7 +87,7 @@ The home screen works like Netflix. Up/Down moves between rows, Left/Right scrol
 
 - **Continue Watching:** everything you're partway through, most recent first. Press **OK once** to resume exactly where you stopped, or to start the next episode if you finished one.
 - **Shows** and **Movies:** your whole library. A blue bar shows how far you got, and a ✓ means watched (past 90%).
-- **Browse:** A–Z lists of all shows and movies, **Other** (slideshows), and **Settings**.
+- **Browse:** A–Z lists of all shows and movies, **Other** (slideshows), **Files** (every folder on the drive), and **Settings**.
 
 Back on the home screen exits Couchmark.
 
@@ -100,6 +101,7 @@ Press **Play/Pause** (instead of OK) on a movie or episode to start it straight 
 | A movie (home row, A–Z list, or any button on the movie's page) | Resumes where you stopped, or plays from the beginning |
 | An episode (show page) | Plays it, resuming where you stopped. No "Resume / Start over" question; press OK for that. |
 | The **Continue** button (show page) | Same as OK |
+| A video in **Files** | Plays it, resuming where you stopped (inside Shows/Movies) |
 
 On a show tile, a season or the Browse row, Play/Pause does nothing.
 
@@ -128,6 +130,17 @@ The row with a **white background** is the cursor: that's what OK acts on. There
 Episodes show ✓ when watched and a blue bar with the time left when partly watched. During the last 10 seconds of an episode, an **Up next** card appears in the corner and counts down. From that moment the episode counts as watched ✓, even if you stop during the credits. Press **OK** to start the next episode right away, or let it finish and the next one starts by itself, including into the next season. Pause, rewind and the other buttons keep working while the card is showing; rewinding hides it.
 
 Episode files are ordered by their `S01E02` / `1x02` code when they have one, otherwise naturally by name. Video files placed directly in a show folder (no season folder) appear under "Episodes".
+
+### Files (every folder on the drive)
+
+If a show or movie doesn't appear the way you expect, open **Browse → Files**. It lists the top of every USB drive exactly as Couchmark sees it, with no sorting into shows and movies: folders first, then files, with a count at the top (for example *2 folders · 24 videos*).
+
+- **OK on a folder** opens it.
+- **OK on a video** plays it; the videos after it in the same folder play next. **Play/Pause** starts it straight away.
+- **OK on a photo** starts a slideshow of that folder.
+- Files Couchmark can't play are listed as **Can't play**, so you can see they're there.
+
+Videos inside a show's folder (`Shows / <Show> / <Season>`) or a movie's folder (`Movies / <Movie>`) share their progress with the show or movie page: they resume where you stopped, show ✓ and progress bars, and count toward **Continue**. Videos anywhere else play without saving a resume point.
 
 ### Other (slideshows)
 

@@ -108,6 +108,38 @@ function ScrubStep(heldSeconds as Float) as Integer
 end function
 
 ' ----------------------------------------------------------------------------
+' Files browser
+' ----------------------------------------------------------------------------
+
+' Where progress for the videos in a folder belongs, so videos played from
+' the Files browser share progress with the show and movie pages:
+'   ext1:/Shows/The Office/Season 2  -> { kind: "show",  title: "The Office", prefix: "Season 2/" }
+'   ext1:/Shows/The Office           -> { kind: "show",  title: "The Office", prefix: "" }
+'   ext1:/Movies/The Matrix          -> { kind: "movie", title: "The Matrix", prefix: "" }
+'   anywhere else (deeper, Other, …) -> { kind: "file",  title: fallbackTitle, prefix: "" }
+' roots: m.global.library.roots. Folder names match case-insensitively.
+function FileContext(folder as String, roots as Object, fallbackTitle as String) as Object
+    plain = { kind: "file", title: fallbackTitle, prefix: "" }
+    for each kind in ["shows", "movies"]
+        for each root in roots[kind]
+            start = LCase(root) + "/"
+            if LCase(Left(folder, Len(start))) = start
+                parts = Mid(folder, Len(start) + 1).Split("/")
+                if kind = "movies"
+                    if parts.Count() = 1 then return { kind: "movie", title: parts[0], prefix: "" }
+                else if parts.Count() = 1
+                    return { kind: "show", title: parts[0], prefix: "" }
+                else if parts.Count() = 2
+                    return { kind: "show", title: parts[0], prefix: parts[1] + "/" }
+                end if
+                return plain
+            end if
+        end for
+    end for
+    return plain
+end function
+
+' ----------------------------------------------------------------------------
 ' Shows
 ' ----------------------------------------------------------------------------
 

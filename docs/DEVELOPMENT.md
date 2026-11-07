@@ -75,7 +75,7 @@ components/
     HomeScreen            Netflix-style home: hero + rows (Continue Watching, Shows, Movies, Browse)
     MovieScreen           A movie's page: Resume / Play from beginning
     ShowScreen            A show's page: Continue button, seasons | episodes
-    FolderListScreen      A–Z lists of all movies or shows; the Other folder browser
+    FolderListScreen      A–Z lists of all movies or shows; the Other folder browser; the Files browser
     SlideshowScreen       Dated photo/video slideshow with preloading and transitions
     SettingsScreen        Photo duration, transition, speed, debug logs, clear history, version
     ResumeDialog          "Resume from … / Start over" (episodes)
@@ -85,7 +85,7 @@ components/
   tasks/                  Background work (Task nodes)
     UsbScanTask           Finds ext*: volumes and their Movies/Shows/Other folders
     HomeScanTask          Home rows: library + artwork, Continue Watching tiles
-    FolderScanTask        Lists subfolders or video files (+ a movie's artwork)
+    FolderScanTask        Lists subfolders, video files (+ a movie's artwork), or everything (Files)
     ShowScanTask          Reads one show's seasons + episodes (+ artwork)
     MediaDateTask         Lists a folder's photos/videos and sorts them by date taken
     LogTask               Runs all session: the only writer of the debug log file
@@ -96,7 +96,7 @@ components/
     Toast                 Short confirmation message ("Marked as watched")
     UpNextOverlay         "Up next" card (display only; PlayerScreen drives it)
   lib/                    Plain BrightScript helpers included via <script>
-    Scan.brs              Reading folders: ScanFolders, ScanVideos, ScanShow, FindArtwork (Tasks only)
+    Scan.brs              Reading folders: ScanFolders, ScanVideos, ScanShow, ScanFiles, FindArtwork (Tasks only)
     Library.brs           Movie/show helpers: player items, badges, "Continue" target
     ShowNav.brs           Show page focus: which area a key moves to, where the episode cursor lands
     ListRowStyle.brs      ListItem looks: classic bar, or the show page's cursor / selected-season styles
@@ -161,6 +161,8 @@ All drive access lives in `lib/Scan.brs` and runs inside Task nodes:
 - `ScanFolders(paths)`: subfolders, merged by name across drives (`paths` keeps every location).
 - `ScanVideos(paths, episodeAware)`: playable video files.
 - `ScanShow(paths)`: seasons and episodes, flattened into one list of player items plus each season's slice of it (`first`, `count`). Videos directly in the show folder become a season called "Episodes".
+- `ScanFiles(paths)`: everything in the folder, for the Files browser (see below).
+- Drive access goes through two seams, `listDirectory()` and `isDirectory()`, so tests can swap in a fake folder tree.
 - `FindArtwork(paths)`: the first `fanart|landscape|backdrop|poster|folder|cover|thumb` `.jpg/.jpeg/.png` found in the folder.
 
 Junk files (`.*`, `$*`, `Thumbs.db`, …) and unsupported extensions are skipped. Sorting uses `NaturalSortKey()`, which zero-pads every run of digits so a plain alphabetical sort gives "2" before "10". With `episodeAware`, names containing `S01E02` or `1x02` sort by season and episode first.
@@ -234,6 +236,15 @@ Progress is saved every 10 s, on Back, and before Previous/Next. The rules diffe
 | 15 s or more, under 90% | resume point saved (part + position) | resume point saved, becomes "last played" |
 | Under 15 s | nothing saved (an old resume point on part 1 is cleared) | becomes "last played", no resume point |
 
+### Files browser
+
+**Browse → Files** opens FolderListScreen with `kind: "files"` on `m.global.library.volumes` (`["ext1:", …]`). It's the fallback for when the Shows/Movies classification doesn't see something: it lists folders as the drive has them.
+
+- FolderScanTask in `"files"` mode calls `ScanFiles(paths)` (`lib/Scan.brs`): subfolders first (merged across drives, like `ScanFolders`), then every non-junk file naturally sorted, each with `kind` = `folder | video | photo | ""` (unsupported).
+- The task also works out where the folder's progress belongs with `FileContext(folder, roots, title)` (`lib/Library.brs`): a show's folder or season folder → `kind: "show"` with the show title and the season prefix used in episode ids; a movie's folder → `kind: "movie"`; anything else → `kind: "file"`. `FilePlayerItems(videos, context)` then builds ready-made player items: episode items with the **same ids as ScanShow** (shared helper `episodeItem()`), movie parts, or plain items. They're returned on the content node (`playerKind`, `playerTitle`, `playerItems`); each row has `videoIndex` into `playerItems`.
+- OK on a video opens ResumeDialog when there's a resume point (`ProgressFindPartial` for shows; for movies, only when the saved part and part count match), otherwise the player. Play/Pause skips the dialog. Video rows in a show folder get episode badges.
+- PlayerScreen with `kind: "file"` saves nothing.
+
 ### Other folders and slideshows
 
 **Browsing:** FolderListScreen with `kind: "other"` runs FolderScanTask in `"browse"` mode. That returns the subfolders, plus counts of the photos, videos and unsupported files directly in the folder (`ScanMedia()`). If there are any photos or videos, a **Play slideshow** row is inserted first. Other rows open the subfolder in another FolderListScreen.
@@ -294,6 +305,7 @@ Like ✱, the Play/Pause key (`"play"`) isn't used by the lists, so it reaches t
 |---|---|---|
 | HomeScreen | Continue tile / movie tile | `playTile()`: the tile's ready-made player fields / `PlayMovie()` |
 | FolderListScreen | movie row | `PlayMovie()` |
+| FolderListScreen (Files) | video row | the folder's `playerItems` at the resume point (`fileResumePos()`) |
 | MovieScreen | any button | `MovieStartPoint()`, then the player |
 | ShowScreen | Continue / episode | same as OK / the episode at its resume point (`ProgressFindPartial`), skipping ResumeDialog |
 
@@ -367,12 +379,13 @@ Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay 
 
 | Test file | What it checks |
 |---|---|
+| `Scan.test.brs` | `ScanShow` on a real 24-episode season, loose episodes, seasons merged across drives, junk files; `ScanFiles` ordering and merging; `FilePlayerItems` |
 | `NaturalSort.test.brs` | "2" before "10", case, `S01E02` / `1x02` codes |
 | `MediaTypes.test.brs` | supported/junk files, extensions, episode-name cleanup |
 | `Format.test.brs` | `1:02:14`, "23 min", "-29:55 / 44:00" |
 | `BuildInfo.test.brs` | the DEV line, uncommitted-changes flag, nothing shown for release builds |
 | `Progress.test.brs` | registry encoding round trips, titles with `\|`, resume-point limit, newest-first list, pruning to the size budget |
-| `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text, mark watched/unwatched (movies, episodes, seasons, "continue" never moves backwards), Up next countdown, seek clamping and scrub speeds |
+| `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text, mark watched/unwatched (movies, episodes, seasons, "continue" never moves backwards), Up next countdown, seek clamping and scrub speeds, `FileContext` |
 | `MediaDate.test.brs` | MP4/MOV `mvhd` dates on real files (`tests/fixtures/`), fallback to the file date |
 | `Transitions.test.brs` | every effect's start/end values, wipe keeps the picture still, random never picks none |
 | `Settings.test.brs` | defaults, save/load, damaged values, next/previous with wrap-around, labels, debug log on/off |
@@ -403,6 +416,7 @@ Directives at the top tell `tests/run.js` what to load:
   - `tests/doubles/Files.brs`: file reads from fixtures, a fixed file date, UTC offset 0.
   - `tests/doubles/LogFiles.brs`: a fake file system for `lib/Log.brs` (volumes, read-only volumes, files), a fixed clock, and `logSend()` collecting lines.
   - `tests/doubles/Listing.brs`: folder listings for `lib/ScanReport.brs`.
+  - `tests/doubles/Folders.brs`: a fake folder tree for `lib/Scan.brs` (`setTree({ path: [names] })` replaces `listDirectory()` / `isDirectory()`).
 - `' @fixture path`: a file whose bytes become available to the Files double (call `loadFixtures()` first).
 
 Run one file with `npm test -- Progress`.

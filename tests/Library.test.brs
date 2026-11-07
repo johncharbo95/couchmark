@@ -12,7 +12,20 @@ sub Main()
     testUpNextCountdown()
     testSeeking()
     testSeekSettleControl()
+    testFileContext()
     finishTests()
+end sub
+
+sub testFileContext()
+    roots = { shows: ["ext1:/Shows", "ext2:/shows"], movies: ["ext1:/Movies"], other: ["ext1:/Other"] }
+    assertEqual(FileContext("ext1:/Shows/The Office/Season 2", roots, "x"), { kind: "show", title: "The Office", prefix: "Season 2/" }, "season folder")
+    assertEqual(FileContext("ext2:/Shows/The Office", roots, "x"), { kind: "show", title: "The Office", prefix: "" }, "show folder, other drive, any case")
+    assertEqual(FileContext("ext1:/Movies/The Matrix", roots, "x"), { kind: "movie", title: "The Matrix", prefix: "" }, "movie folder")
+    assertEqual(FileContext("ext1:/Shows/The Office/Season 2/Extras", roots, "Extras"), { kind: "file", title: "Extras", prefix: "" }, "deeper than a season: not tracked")
+    assertEqual(FileContext("ext1:/Movies/The Matrix/Extras", roots, "Extras"), { kind: "file", title: "Extras", prefix: "" }, "inside a movie's subfolder: not tracked")
+    assertEqual(FileContext("ext1:/Shows", roots, "Shows"), { kind: "file", title: "Shows", prefix: "" }, "the Shows folder itself")
+    assertEqual(FileContext("ext1:/Showsy/A", roots, "A"), { kind: "file", title: "A", prefix: "" }, "similar folder name doesn't match")
+    assertEqual(FileContext("ext1:/Other/Trip", roots, "Trip"), { kind: "file", title: "Trip", prefix: "" }, "Other")
 end sub
 
 sub testSeeking()

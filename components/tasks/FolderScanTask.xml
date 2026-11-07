@@ -9,6 +9,11 @@
                "videos":  list playable video files (e.g. a movie's parts)
                "browse":  list subfolders AND count the photos / videos /
                           unsupported files directly inside (Other folders)
+               "files":   list everything (Files browser): folders, then
+                          files. Each child has kind ("folder" | "video" |
+                          "photo" | "") and videoIndex (its position in
+                          content.playerItems, or -1).
+      title  – "files" mode: name used for videos outside Shows/Movies
     Output:
       content – a ContentNode whose children are the sorted entries:
                 title (display name), url (first path found), and paths
@@ -16,11 +21,15 @@
                 In "videos" mode, content.hdPosterUrl = the folder's artwork.
                 In "browse" mode, content also has photoCount, videoCount and
                 unsupportedCount.
+                In "files" mode, content also has playerKind, playerTitle,
+                playerItems (PlayerScreen fields for this folder's videos)
+                and folderCount, videoCount, photoCount, otherCount.
 -->
 <component name="FolderScanTask" extends="Task">
     <interface>
         <field id="paths" type="array" />
         <field id="mode" type="string" value="folders" />
+        <field id="title" type="string" />
         <field id="content" type="node" />
     </interface>
     <script type="text/brightscript" uri="FolderScanTask.brs" />
@@ -31,4 +40,5 @@
     <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Log.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/ScanReport.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Library.brs" />
 </component>

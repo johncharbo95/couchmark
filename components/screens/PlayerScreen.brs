@@ -22,6 +22,7 @@
 '   - Past 90% of a movie's last part, or of an episode: watched ✓, resume
 '     point cleared.
 '   - Less than 15 s in: no resume point.
+'   - kind "file" (Files browser, outside Shows/Movies): nothing is saved.
 '   - During the last 10 s of an item that has a successor, the "Up next"
 '     card counts down (UpNextCountdown in lib/Library.brs). From the moment
 '     it appears, the item counts as finished (watched; for a movie part,
@@ -273,6 +274,9 @@ sub buildButtons()
     if m.top.kind = "show"
         nextLabel = "Next episode"
         previousLabel = "Previous episode"
+    else if m.top.kind = "file"
+        nextLabel = "Next video"
+        previousLabel = "Previous video"
     end if
 
     m.buttons = []
@@ -431,7 +435,9 @@ sub saveProgress(finished as Boolean)
     if duration <= 0 and not finished then return   ' not loaded yet / failed
 
     nearEnd = finished or position >= duration * 0.9
-    if m.top.kind = "show"
+    if m.top.kind = "file"
+        return   ' Files browser, outside Shows/Movies: nothing to save
+    else if m.top.kind = "show"
         saveEpisodeProgress(position, duration, nearEnd)
     else
         saveMovieProgress(position, duration, nearEnd, finished)

@@ -2,22 +2,21 @@
 ' Scan.brs — reading folders on the USB drive
 '
 ' These functions touch the drive, so only call them from Task nodes.
-' Needs: MediaTypes.brs, NaturalSort.brs, Progress.brs, Format.brs
+' Needs: MediaTypes.brs, NaturalSort.brs, Progress.brs, Format.brs, Library.brs
 ' ============================================================================
 
 ' Subfolders of one or more folders, merged by name and naturally sorted:
 '   [ { name, title, path, paths }, ... ]
 ' "paths" lists every folder with that name (several drives); path = first.
 function ScanFolders(folders as Object) as Object
-    fs = CreateObject("roFileSystem")
     entries = []
     byName = {}
     for each folder in folders
-        for each name in fs.GetDirectoryListing(folder + "/")
+        for each name in listDirectory(folder)
             path = folder + "/" + name
             if byName.DoesExist(name)
                 byName[name].paths.Push(path)
-            else if not IsJunkName(name) and isDirectory(fs, path)
+            else if not IsJunkName(name) and isDirectory(path)
                 entry = { name: name, title: name, path: path, paths: [path] }
                 byName[name] = entry
                 entries.Push(entry)
@@ -31,11 +30,10 @@ end function
 ' Playable video files in one or more folders, naturally sorted:
 '   [ { name, title (no extension), path }, ... ]
 function ScanVideos(folders as Object, episodeAware as Boolean) as Object
-    fs = CreateObject("roFileSystem")
     entries = []
     seen = {}
     for each folder in folders
-        for each name in fs.GetDirectoryListing(folder + "/")
+        for each name in listDirectory(folder)
             if MediaKind(name) = "video" and not seen.DoesExist(name)
                 seen[name] = true
                 entries.Push({ name: name, title: StripExtension(name), path: folder + "/" + name })
@@ -51,23 +49,50 @@ end function
 ' "unsupported" counts other files (e.g. HEIC photos) so the UI can say
 ' why they're missing. Hidden/system files aren't counted.
 function ScanMedia(folders as Object) as Object
-    fs = CreateObject("roFileSystem")
     media = []
     unsupported = 0
     seen = {}
     for each folder in folders
-        for each name in fs.GetDirectoryListing(folder + "/")
+        for each name in listDirectory(folder)
             path = folder + "/" + name
             kind = MediaKind(name)
             if kind <> "" and not seen.DoesExist(name)
                 seen[name] = true
                 media.Push({ name: name, path: path, kind: kind })
-            else if kind = "" and not IsJunkName(name) and not isDirectory(fs, path) and not isSidecarName(name)
+            else if kind = "" and not IsJunkName(name) and not isDirectory(path) and not isSidecarName(name)
                 unsupported = unsupported + 1
             end if
         end for
     end for
     return { media: media, unsupported: unsupported }
+end function
+
+' Everything in one or more folders, as the drive has it (Files browser):
+'   [ { name, title, path, paths, kind }, ... ]
+' kind: "folder", "video", "photo", or "" (a file Couchmark can't play).
+' Folders come first, merged by name across drives (paths = every
+' location); then files, naturally sorted. Hidden/system files are skipped.
+function ScanFiles(folders as Object) as Object
+    subfolders = ScanFolders(folders)
+    for each entry in subfolders
+        entry.kind = "folder"
+    end for
+
+    files = []
+    seen = {}
+    for each folder in folders
+        for each name in listDirectory(folder)
+            path = folder + "/" + name
+            if not seen.DoesExist(name) and not IsJunkName(name) and not isDirectory(path)
+                seen[name] = true
+                files.Push({ name: name, title: name, path: path, paths: [path], kind: MediaKind(name) })
+            end if
+        end for
+    end for
+    NaturalSortByName(files, true)
+
+    subfolders.Append(files)
+    return subfolders
 end function
 
 ' Subtitle files and similar sidecar files aren't worth reporting.
@@ -101,16 +126,40 @@ end function
 sub addSeason(items as Object, seasons as Object, title as String, relativePrefix as String, episodes as Object)
     first = items.Count()
     for each episode in episodes
-        code = episodeCodeLabel(episode.name)
-        items.Push({
-            url: episode.path
-            label: CleanEpisodeTitle(episode.title, code)
-            id: ProgressEpisodeId(relativePrefix + episode.name)
-            code: code
-        })
+        items.Push(episodeItem(episode, relativePrefix))
     end for
     seasons.Push({ title: title, first: first, count: episodes.Count() })
 end sub
+
+' A PlayerScreen item for one episode file ({ name, path } from a scan).
+' relativePrefix: its season folder + "/", or "" for a loose episode.
+function episodeItem(episode as Object, relativePrefix as String) as Object
+    code = episodeCodeLabel(episode.name)
+    return {
+        url: episode.path
+        label: CleanEpisodeTitle(StripExtension(episode.name), code)
+        id: ProgressEpisodeId(relativePrefix + episode.name)
+        code: code
+    }
+end function
+
+' PlayerScreen items for the videos of one folder in the Files browser
+' ([ { name, path } ], in order), using the folder's FileContext: episode
+' items for a show's folder (same ids as the show page, so progress is
+' shared), part items for a movie, plain items otherwise (label = file
+' name without extension).
+function FilePlayerItems(videos as Object, context as Object) as Object
+    if context.kind = "movie" then return MoviePlayerItems(videos)
+    items = []
+    for each video in videos
+        if context.kind = "show"
+            items.Push(episodeItem(video, context.prefix))
+        else
+            items.Push({ url: video.path, label: StripExtension(video.name), id: "", code: "" })
+        end if
+    end for
+    return items
+end function
 
 ' "Show.S2E5.mkv" -> "S02E05", or "" when there's no code.
 function episodeCodeLabel(fileName as String) as String
@@ -122,14 +171,13 @@ end function
 ' Artwork for a movie or show: the first of these files found in its
 ' folder(s), or "" if none. Wide images first, since tiles are 16:9.
 function FindArtwork(folders as Object) as String
-    fs = CreateObject("roFileSystem")
     candidates = ["fanart", "landscape", "backdrop", "poster", "folder", "cover", "thumb"]
     extensions = ["jpg", "jpeg", "png"]
 
     for each folder in folders
         ' lower-case name -> real name (file names may be "Poster.JPG")
         present = {}
-        for each name in fs.GetDirectoryListing(folder + "/")
+        for each name in listDirectory(folder)
             present[LCase(name)] = name
         end for
         for each candidate in candidates
@@ -144,16 +192,24 @@ end function
 
 ' Existing folders called <title> inside any of the given root folders.
 function FindTitleFolders(roots as Object, title as String) as Object
-    fs = CreateObject("roFileSystem")
     found = []
     for each root in roots
         path = root + "/" + title
-        if isDirectory(fs, path) then found.Push(path)
+        if isDirectory(path) then found.Push(path)
     end for
     return found
 end function
 
-function isDirectory(fs as Object, path as String) as Boolean
-    info = fs.Stat(path)
+' ----------------------------------------------------------------------------
+' Drive access (replaced by tests/doubles/Folders.brs in the tests)
+' ----------------------------------------------------------------------------
+
+' Names of the files and folders directly inside a folder.
+function listDirectory(folder as String) as Object
+    return CreateObject("roFileSystem").GetDirectoryListing(folder + "/")
+end function
+
+function isDirectory(path as String) as Boolean
+    info = CreateObject("roFileSystem").Stat(path)
     return info <> invalid and info.type = "directory"
 end function

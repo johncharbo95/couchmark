@@ -3,7 +3,8 @@
     PlayerScreen — full-screen playback with Netflix-style controls.
 
     Fields:
-      kind       – "movie" or "show" (decides how progress is saved)
+      kind       – "movie", "show" (decides how progress is saved) or
+                   "file" (Files browser, outside Shows/Movies: not saved)
       title      – movie or show name (also the key for saved progress)
       items      – what to play, in order. Each is an associative array:
                      { url, label, id }

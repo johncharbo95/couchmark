@@ -10,7 +10,7 @@
 '   { type: "play",   player: {...PlayerScreen fields} }   Continue Watching
 '   { type: "show",   paths, art }                          → ShowScreen
 '   { type: "movie",  path, art }                           → MovieScreen
-'   { type: "browse", id: "movies" | "shows" | "other" | "settings" }
+'   { type: "browse", id: "movies" | "shows" | "other" | "files" | "settings" }
 ' ✱ (options) on a movie tile marks it watched / unwatched; on a Continue
 ' Watching tile it marks that movie / episode watched, so the row moves on.
 ' Play/Pause on a Continue Watching or movie tile starts playing it.
@@ -123,6 +123,7 @@ sub buildRows()
     addTile(row, "All Shows", "A–Z list", "", "", 0.0, roots.shows.Count() > 0, { type: "browse", id: "shows" })
     addTile(row, "All Movies", "A–Z list", "", "", 0.0, roots.movies.Count() > 0, { type: "browse", id: "movies" })
     addTile(row, "Other", "Photo & video slideshows", "", "", 0.0, roots.other.Count() > 0, { type: "browse", id: "other" })
+    addTile(row, "Files", "Every folder on the drive", "", "", 0.0, m.global.library.volumes.Count() > 0, { type: "browse", id: "files" })
     addTile(row, "Settings", "Slideshow & history", "", "", 0.0, true, { type: "browse", id: "settings" })
 
     m.rows.content = root
@@ -254,7 +255,10 @@ end sub
 sub openBrowse(tile as Object, id as String)
     roots = m.global.library.roots
 
-    if not tile.enabled
+    if not tile.enabled and id = "files"
+        m.top.navigate = { screen: "MessageScreen", fields: { title: "No USB drive", message: UsbLayoutHelp() } }
+        return
+    else if not tile.enabled
         folder = "Movies"
         if id = "shows" then folder = "Shows"
         if id = "other" then folder = "Other"
@@ -274,6 +278,8 @@ sub openBrowse(tile as Object, id as String)
         m.top.navigate = { screen: "FolderListScreen", fields: { title: "Shows", kind: "shows", paths: roots.shows } }
     else if id = "other"
         m.top.navigate = { screen: "FolderListScreen", fields: { title: "Other", kind: "other", paths: roots.other } }
+    else if id = "files"
+        m.top.navigate = { screen: "FolderListScreen", fields: { title: "Files", kind: "files", paths: m.global.library.volumes } }
     else if id = "settings"
         m.top.navigate = { screen: "SettingsScreen" }
     end if
