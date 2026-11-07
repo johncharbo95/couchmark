@@ -8,6 +8,13 @@
       rowWidth – row width in pixels (default 1610). Below 900 px the row
                  uses a compact layout: no detail text, progress bar along
                  the bottom edge.
+    Optional, for the show page's "strong" look (lib/ListRowStyle.brs);
+    rows without these fields keep the classic look:
+      strongCursor – true: white cursor row instead of the blue bar
+      listFocused  – false hides the cursor (the list isn't focused).
+                     The screen updates it when focus moves.
+      selected     – true: accent bar + tint + bold (e.g. the season whose
+                     episodes are shown)
 -->
 <component name="ListItem" extends="Group">
     <interface>
@@ -16,6 +23,7 @@
     </interface>
 
     <script type="text/brightscript" uri="ListItem.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/ListRowStyle.brs" />
 
     <children>
         <Rectangle id="background" width="1610" height="84" color="0x1E252DFF" />

@@ -114,7 +114,17 @@ A show's page has a **Continue** button at the top, seasons on the left, and tha
 - **Next: S02E06** if you finished the last one
 - **Start watching S01E01** if you've never watched it
 
-Use Left/Right to move between seasons and episodes, and Up to get back to the Continue button. Episodes show ✓ when watched and a blue bar with the time left when partly watched. During the last 10 seconds of an episode, an **Up next** card appears in the corner and counts down. From that moment the episode counts as watched ✓, even if you stop during the credits. Press **OK** to start the next episode right away, or let it finish and the next one starts by itself, including into the next season. Pause, rewind and the other buttons keep working while the card is showing; rewinding hides it.
+The row with a **white background** is the cursor: that's what OK acts on. There is only ever one. The season whose episodes are shown has a **blue bar** on its left and a blue tint, and keeps it while you browse its episodes.
+
+| Button | Action |
+|---|---|
+| **Left** (in the episodes) | Move to the season list. The cursor starts on the season you're watching. |
+| **Up / Down** (in the seasons) | Move the cursor. The episodes don't change yet. |
+| **OK** or **Right** (on a season) | Open that season: its episodes appear and the cursor jumps to them, on the episode you'd continue with, or else the first one you haven't watched |
+| **Up** (on the top row) | Back to the Continue button |
+| **Down** (on Continue) | To the episodes |
+
+Episodes show ✓ when watched and a blue bar with the time left when partly watched. During the last 10 seconds of an episode, an **Up next** card appears in the corner and counts down. From that moment the episode counts as watched ✓, even if you stop during the credits. Press **OK** to start the next episode right away, or let it finish and the next one starts by itself, including into the next season. Pause, rewind and the other buttons keep working while the card is showing; rewinding hides it.
 
 Episode files are ordered by their `S01E02` / `1x02` code when they have one, otherwise naturally by name. Video files placed directly in a show folder (no season folder) appear under "Episodes".
 
@@ -143,7 +153,7 @@ Press **✱** (the star/options button) on:
 | A movie (home row, A–Z list, or the movie's page) | Watched ✓ ↔ unwatched. Marking watched clears its resume point. The movie page also has a **Mark as watched** button. |
 | A **Continue Watching** tile | "I've already seen this": marks that movie or episode watched, and the row moves on to the next episode. |
 | An episode (show page) | Watched ✓ ↔ unwatched |
-| A season (show page, left list) | Marks every episode in it watched. If they all are already, marks them all unwatched. |
+| A season (show page, left list, under the cursor) | Marks every episode in it watched. If they all are already, marks them all unwatched. |
 | The **Continue** button (show page) | Marks that episode watched, so Continue moves on |
 
 A short message confirms each change. Marking episodes watched moves the show's **Continue** forward, never backwards. Marking an earlier season doesn't lose your place in a later one.

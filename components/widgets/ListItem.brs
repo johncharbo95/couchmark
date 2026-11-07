@@ -12,6 +12,11 @@ sub init()
     m.progressTrack = m.top.FindNode("progressTrack")
     m.progressFill = m.top.FindNode("progressFill")
     m.barWidth = 180
+    m.regularFont = m.title.font
+    m.boldFont = CreateObject("roSGNode", "Font")
+    m.boldFont.uri = "font:BoldSystemFontFile"
+    m.boldFont.size = 36
+    m.bold = false
 end sub
 
 sub onContentSet()
@@ -23,14 +28,16 @@ sub onContentSet()
     update()
 
     ' The screen changes badge/progress/detail after returning from the
-    ' player, so watch those fields on the node we're drawing. Lists reuse
-    ' row components while scrolling, so stop watching the previous node.
+    ' player, and listFocused/selected when focus or the season changes, so
+    ' watch those fields on the node we're drawing. Lists reuse row
+    ' components while scrolling, so stop watching the previous node.
+    names = ["badge", "progress", "detail", "listFocused", "selected"]
     if m.watched <> invalid
-        for each name in ["badge", "progress", "detail"]
+        for each name in names
             m.watched.UnobserveFieldScoped(name)
         end for
     end if
-    for each name in ["badge", "progress", "detail"]
+    for each name in names
         if item.HasField(name) then item.ObserveFieldScoped(name, "update")
     end for
     m.watched = item
@@ -73,15 +80,26 @@ sub update()
         if fraction > 1 then fraction = 1
         m.progressFill.width = m.barWidth * fraction
     end if
+    applyStyle()
 end sub
 
 sub onFocusPercentChange()
-    p = m.top.focusPercent
-    m.focusBar.opacity = p
-    if p > 0.5
-        m.background.color = "0x2A3440FF"
-    else
-        m.background.color = "0x1E252DFF"
+    applyStyle()
+end sub
+
+' Colours for the current focus/selection state (lib/ListRowStyle.brs).
+sub applyStyle()
+    item = m.top.itemContent
+    if item = invalid then return
+    style = ListRowStyle(m.top.focusPercent, fieldOr(item, "listFocused", true), fieldOr(item, "selected", false), fieldOr(item, "strongCursor", false))
+    m.background.color = style.background
+    m.title.color = style.titleColor
+    m.detail.color = style.detailColor
+    m.focusBar.color = style.barColor
+    m.focusBar.opacity = style.barOpacity
+    if style.bold <> m.bold
+        m.bold = style.bold
+        if m.bold then m.title.font = m.boldFont else m.title.font = m.regularFont
     end if
 end sub
 

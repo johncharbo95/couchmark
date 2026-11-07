@@ -1,13 +1,19 @@
 ' ============================================================================
 ' ShowScreen.brs
 '
-' Three focus areas, moved between with the arrow keys:
+' Three focus areas, moved between with the arrow keys (lib/ShowNav.brs):
 '   "continue"  the Continue button        Down  → episodes
-'   "seasons"   season list (left)         Right → episodes, Up (top) → continue
-'   "episodes"  episode list (right)       Left  → seasons,  Up (top) → continue
-' Highlighting a season fills the episode list with its episodes.
-' ✱ marks the highlighted episode / whole season / Continue episode as
-' watched or unwatched (ToggleEpisodesWatched in lib/Library.brs).
+'   "seasons"   season list (left)         OK/Right → open the season under
+'                                          the cursor, Up (top) → continue
+'   "episodes"  episode list (right)       Left  → seasons, cursor on the
+'                                          selected season; Up (top) → continue
+' Two different markers (lib/ListRowStyle.brs):
+'   cursor    white row, only in the focused list (one on screen at a time)
+'   selected  accent bar + tint on the season whose episodes are shown. It
+'             changes only when a season is opened (OK / Right), not while
+'             the cursor moves.
+' ✱ marks the highlighted episode / season under the cursor / Continue
+' episode as watched or unwatched (ToggleEpisodesWatched in lib/Library.brs).
 ' Play/Pause plays the highlighted episode (resuming) or Continue.
 ' Everything is refreshed when the screen reappears after playback.
 ' ============================================================================
@@ -23,14 +29,14 @@ sub init()
     m.toast = m.top.FindNode("toast")
 
     m.continueButton.ObserveField("itemSelected", "onContinueSelected")
-    m.seasons.ObserveField("itemFocused", "onSeasonFocused")
+    m.seasons.ObserveField("itemSelected", "onSeasonSelected")
     m.episodes.ObserveField("itemSelected", "onEpisodeSelected")
     m.top.ObserveField("focusedChild", "onFocusedChildChange")
     m.top.ObserveField("visible", "onVisibleChange")
 
     m.show = invalid        ' { items, seasons, art } once scanned
     m.target = invalid      ' ContinueTarget result
-    m.seasonIndex = -1
+    m.seasonIndex = -1      ' the selected season (its episodes are shown)
     m.area = "continue"
     m.started = false
 end sub
@@ -76,13 +82,13 @@ sub onShowScanned(event as Object)
 
     refresh()
 
-    ' Open on the season of the episode you'd continue with.
+    ' Open on the season of the episode you'd continue with (the episode
+    ' cursor lands on that episode, see SeasonEntryRow).
     startSeason = 0
-    if m.target <> invalid then startSeason = seasonOf(m.target.index)
+    if m.target <> invalid then startSeason = SeasonOfItem(m.show.seasons, m.target.index)
     m.seasons.jumpToItem = startSeason
-    showSeason(startSeason)
+    openSeason(startSeason)
     if m.target <> invalid
-        m.episodes.jumpToItem = m.target.index - m.show.seasons[startSeason].first
         m.area = "continue"
     else
         m.area = "episodes"
@@ -131,34 +137,53 @@ sub refresh()
 
         row = rows.CreateChild("ContentNode")
         row.title = season.title
-        row.AddFields({ badge: badge, progress: progress, rowWidth: 420 })
+        row.AddFields({ badge: badge, progress: progress, rowWidth: 420, strongCursor: true, listFocused: false, selected: false })
     end for
     focusedSeason = m.seasons.itemFocused
     m.seasons.content = rows
     if focusedSeason > 0 then m.seasons.jumpToItem = focusedSeason
 
     if m.seasonIndex >= 0 then refreshEpisodeBadges()
+    updateRowStates()
 end sub
 
-sub onSeasonFocused()
-    if m.show <> invalid and m.seasons.itemFocused <> m.seasonIndex
-        showSeason(m.seasons.itemFocused)
-    end if
+' OK on a season: open it and move the cursor into its episodes.
+sub onSeasonSelected()
+    if m.show = invalid or m.show.items.Count() = 0 then return
+    openSeason(m.seasons.itemSelected)
+    focusArea("episodes")
 end sub
 
-sub showSeason(index as Integer)
+' Makes a season the selected one: fills the episode list (if it changed)
+' and puts the episode cursor where it should land (SeasonEntryRow in
+' lib/ShowNav.brs). Doesn't move focus.
+sub openSeason(index as Integer)
     if index < 0 or index >= m.show.seasons.Count() then return
-    m.seasonIndex = index
     season = m.show.seasons[index]
 
-    rows = CreateObject("roSGNode", "ContentNode")
+    currentRow = -1
+    if index = m.seasonIndex then currentRow = m.episodes.itemFocused
+    targetIndex = -1
+    if m.target <> invalid then targetIndex = m.target.index
+    watched = []
     for e = season.first to season.first + season.count - 1
-        row = rows.CreateChild("ContentNode")
-        row.title = m.show.items[e].label
-        row.AddFields({ badge: "", progress: 0.0, detail: "", rowWidth: 1268 })
+        watched.Push(m.record.watched.DoesExist(m.show.items[e].id))
     end for
-    m.episodes.content = rows
-    refreshEpisodeBadges()
+    entryRow = SeasonEntryRow(season, targetIndex, watched, currentRow)
+
+    if index <> m.seasonIndex
+        m.seasonIndex = index
+        rows = CreateObject("roSGNode", "ContentNode")
+        for e = season.first to season.first + season.count - 1
+            row = rows.CreateChild("ContentNode")
+            row.title = m.show.items[e].label
+            row.AddFields({ badge: "", progress: 0.0, detail: "", rowWidth: 1268, strongCursor: true, listFocused: false, selected: false })
+        end for
+        m.episodes.content = rows
+        refreshEpisodeBadges()
+    end if
+    m.episodes.jumpToItem = entryRow
+    updateRowStates()
 end sub
 
 sub refreshEpisodeBadges()
@@ -178,13 +203,22 @@ sub refreshEpisodeBadges()
     end for
 end sub
 
-function seasonOf(itemIndex as Integer) as Integer
-    for s = 0 to m.show.seasons.Count() - 1
-        season = m.show.seasons[s]
-        if itemIndex >= season.first and itemIndex < season.first + season.count then return s
-    end for
-    return 0
-end function
+' Tells the rows which list has focus (only that list draws its cursor) and
+' which season is selected. ListItem draws the looks (lib/ListRowStyle.brs).
+sub updateRowStates()
+    if m.seasons.content <> invalid
+        seasonRows = m.seasons.content.GetChildren(-1, 0)
+        for r = 0 to seasonRows.Count() - 1
+            seasonRows[r].listFocused = (m.area = "seasons")
+            seasonRows[r].selected = (r = m.seasonIndex)
+        end for
+    end if
+    if m.episodes.content <> invalid
+        for each row in m.episodes.content.GetChildren(-1, 0)
+            row.listFocused = (m.area = "episodes")
+        end for
+    end if
+end sub
 
 ' ----------------------------------------------------------------------------
 ' Focus & keys
@@ -194,6 +228,7 @@ sub focusArea(area as String)
     if m.show = invalid or m.show.items.Count() = 0 then return
     if area = "continue" and not m.continueButton.visible then area = "episodes"
     m.area = area
+    updateRowStates()
     if area = "continue"
         m.continueButton.SetFocus(true)
     else if area = "seasons"
@@ -215,20 +250,19 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
 
-    if m.area = "continue" and key = "down"
-        focusArea("episodes")
-        return true
-    else if m.area = "seasons" and key = "right"
-        focusArea("episodes")
-        return true
-    else if m.area = "episodes" and key = "left"
-        focusArea("seasons")
-        return true
-    else if (m.area = "seasons" or m.area = "episodes") and key = "up" and m.continueButton.visible
-        focusArea("continue")
-        return true
+    if m.show = invalid or m.show.items.Count() = 0 then return false
+    nextArea = ShowNextArea(m.area, key, m.continueButton.visible)
+    if nextArea = "" then return false
+
+    if m.area = "seasons" and key = "right"
+        ' Right opens the season under the cursor, like OK.
+        openSeason(m.seasons.itemFocused)
+    else if nextArea = "seasons"
+        ' From the episodes, the cursor starts on the selected season.
+        m.seasons.jumpToItem = m.seasonIndex
     end if
-    return false
+    focusArea(nextArea)
+    return true
 end function
 
 ' ----------------------------------------------------------------------------
@@ -246,7 +280,8 @@ sub toggleWatched()
         ToggleEpisodesWatched(record, [item.id], allIds, true)
         message = EpisodeShortLabel(item) + " marked as watched"
     else if m.area = "seasons"
-        season = m.show.seasons[m.seasonIndex]
+        ' The season under the cursor, which may not be the selected one.
+        season = m.show.seasons[m.seasons.itemFocused]
         watched = ToggleEpisodesWatched(record, EpisodeIds(m.show.items, season.first, season.count), allIds)
         message = season.title + markedText(watched)
     else

@@ -3,7 +3,13 @@
     ShowScreen — a show's page, laid out like Netflix:
 
         Title, info line, [ Continue S02E05 at 23:14 ]
-        Seasons (left)  |  Episodes of the highlighted season (right)
+        Seasons (left)  |  Episodes of the selected season (right)
+
+    Both lists use ListItem's "strong" look (lib/ListRowStyle.brs): a white
+    cursor row in the focused list only, and an accent bar on the selected
+    season. Geometry at 1920x1080: seasons x 96-516, episodes x 556-1824,
+    7 rows of 84 + 8 px from y 360 to 996 (lists scroll beyond that), the
+    hint line at y 1030. Long titles are cut with "..." by the Label.
 
     Fields:
       title – show folder name (also the key for saved progress)
@@ -21,6 +27,7 @@
     <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Library.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/ShowNav.brs" />
 
     <children>
         <Poster id="heroArt" translation="[700, 0]" width="1220" height="686" loadWidth="1220" loadHeight="686" loadDisplayMode="scaleToZoom" opacity="0.7" />
@@ -39,7 +46,8 @@
             itemSize="[760, 80]"
             color="0xC8D0D8FF"
             focusedColor="0x101418FF"
-            focusBitmapBlendColor="0xFFFFFFFF">
+            focusBitmapBlendColor="0xFFFFFFFF"
+            focusFootprintBlendColor="0x2A3440FF">
             <Font role="font" uri="font:BoldSystemFontFile" size="34" />
             <Font role="focusedFont" uri="font:BoldSystemFontFile" size="34" />
         </LabelList>

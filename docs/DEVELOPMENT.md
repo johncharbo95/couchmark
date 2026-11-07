@@ -97,6 +97,8 @@ components/
   lib/                    Plain BrightScript helpers included via <script>
     Scan.brs              Reading folders: ScanFolders, ScanVideos, ScanShow, FindArtwork (Tasks only)
     Library.brs           Movie/show helpers: player items, badges, "Continue" target
+    ShowNav.brs           Show page focus: which area a key moves to, where the episode cursor lands
+    ListRowStyle.brs      ListItem looks: classic bar, or the show page's cursor / selected-season styles
     Progress.brs          Registry storage of playback progress + pruning
     Settings.brs          User settings: storage, choices, labels, next/previous value
     Transitions.brs       What each transition does (start/end values per slot)
@@ -173,7 +175,23 @@ Each tile's `action` field says what OK does (`play`, `show`, `movie` or `browse
 
 **MovieScreen** lists the movie's parts and offers *Resume* + *Play from beginning*, or just *Play*.
 
-**ShowScreen** has three focus areas: the Continue button, the season list (left) and the episode list (right). Lists don't handle a key they can't use (for example Up on the first row), so the key reaches `ShowScreen.onKeyEvent`, which moves to another area. Highlighting a season refills the episode list. The Continue button text comes from `ContinueTarget()` in `Library.brs`:
+**ShowScreen** has three focus areas: the Continue button, the season list (left) and the episode list (right). Lists don't handle a key they can't use (for example Up on the first row), so the key reaches `ShowScreen.onKeyEvent`, which asks `ShowNextArea(area, key, continueVisible)` in `lib/ShowNav.brs` (unit-tested) where to go.
+
+Seasons work like a menu, not a live preview. Moving the cursor over a season changes nothing else. **OK** or **Right** on a season *opens* it (`openSeason()`): the episode list is refilled and focus moves to it. **Left** from the episodes always puts the cursor back on the open season (`jumpToItem = m.seasonIndex`). `SeasonEntryRow()` picks the episode row the cursor lands on: your current row if you reopen the same season, else the Continue episode if it's in that season, else the first unwatched episode, else the first one.
+
+Two markers, drawn by `ListItem` from `ListRowStyle()` in `lib/ListRowStyle.brs` (unit-tested), make the state readable:
+
+| Look | Meaning | When |
+|---|---|---|
+| **Cursor**: white row, dark bold text | Where OK goes | Only on the focused row of the *focused* list, so there's one cursor on screen |
+| **Selected**: blue accent bar on the left, blue-tinted row, bold white text | The season whose episodes are shown | Always, also while the cursor is in the episodes or on Continue |
+| Both: white row that keeps its accent bar | Cursor on the open season | |
+
+The rows opt in to this "strong" look with extra ContentNode fields: `strongCursor: true`, `selected`, and `listFocused`. `updateRowStates()` rewrites `listFocused`/`selected` on every row whenever focus moves or a season opens, and `ListItem` observes those fields. MarkupList keeps reporting `focusPercent` for its focused row even when the list doesn't have focus, which is why `listFocused` is needed. Rows without these fields (FolderListScreen, Settings) keep the classic look. The Continue button's unfocused footprint is a dark grey (`focusFootprintBlendColor`) so it doesn't look like a second cursor. ✱ on the season list acts on the season under the cursor, which may not be the open one.
+
+At 1920x1080, the season list spans x 96–516 and the episode list x 556–1824. Both show 7 rows (y 360–996) and scroll beyond that. Long titles are cut short with "…" by the Label.
+
+The Continue button text comes from `ContinueTarget()` in `Library.brs`:
 
 - The last-played episode has a resume point → **Continue S02E05 at 23:14**
 - The last-played episode was finished → **Next: S02E06**
@@ -317,6 +335,8 @@ Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay 
 | `MediaDate.test.brs` | MP4/MOV `mvhd` dates on real files (`tests/fixtures/`), fallback to the file date |
 | `Transitions.test.brs` | every effect's start/end values, wipe keeps the picture still, random never picks none |
 | `Settings.test.brs` | defaults, save/load, damaged values, next/previous with wrap-around, labels |
+| `ShowNav.test.brs` | show page keys between Continue / seasons / episodes, season of an episode, where the episode cursor lands when a season opens |
+| `ListRowStyle.test.brs` | classic row look unchanged; show page: one cursor only in the focused list, selected season distinct from the cursor and kept while the cursor is elsewhere |
 
 Screens (focus, layout, playback) need a real Roku and are tested by hand. If you change a screen, also try it on a TV.
 
