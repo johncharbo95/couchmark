@@ -100,7 +100,7 @@ sub playItem(index as Integer, startPos as Integer)
     m.titleLabel.text = m.top.title
     m.subtitleLabel.text = item.label
 
-    print "[Player] playing "; item.url; " from "; startPos; "s"
+    LogInfo("Player", "playing " + item.url + " from " + startPos.ToStr() + "s")
     m.video.content = content
     m.video.control = "play"
     updateButtons()
@@ -481,7 +481,7 @@ end sub
 
 sub onVideoStateChange()
     state = m.video.state
-    print "[Player] state "; state
+    LogInfo("Player", "state " + state)
 
     ' A seek has finished once playback settles; from then on show the real
     ' position (it may differ slightly from the target on some videos).
@@ -510,6 +510,7 @@ sub onVideoStateChange()
         end if
 
     else if state = "error"
+        LogError("Player", PlayerErrorText(m.video, m.items[m.index].url))
         m.top.navigate = {
             screen: "MessageScreen"
             replace: true

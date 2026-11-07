@@ -5,6 +5,7 @@
 '   photoSeconds   dur           3, 5*, 8, 10, 15, 30
 '   transition     tr            none, fade*, slide, push, wipe, zoom, random
 '   speed          spd           slow, normal*, fast
+'   saveLogs       log           on*, off  (debug log on the USB drive, lib/Log.brs)
 '
 ' SettingOptions / SettingLabel / NextSettingValue drive the Settings screen
 ' and are plain functions (unit-tested in tests/Settings.test.brs).
@@ -12,10 +13,10 @@
 ' ============================================================================
 
 function SettingsDefaults() as Object
-    return { photoSeconds: 5, transition: "fade", speed: "normal" }
+    return { photoSeconds: 5, transition: "fade", speed: "normal", saveLogs: "on" }
 end function
 
-' Returns { photoSeconds, transition, speed }. Unknown or damaged values
+' Returns { photoSeconds, transition, speed, saveLogs }. Unknown or damaged values
 ' fall back to the defaults.
 function SettingsGet() as Object
     settings = SettingsDefaults()
@@ -32,6 +33,10 @@ function SettingsGet() as Object
         value = section.Read("spd")
         if isOption("speed", value) then settings.speed = value
     end if
+    if section.Exists("log")
+        value = section.Read("log")
+        if isOption("saveLogs", value) then settings.saveLogs = value
+    end if
     return settings
 end function
 
@@ -40,6 +45,7 @@ sub SettingsSave(settings as Object)
     section.Write("dur", settings.photoSeconds.ToStr())
     section.Write("tr", settings.transition)
     section.Write("spd", settings.speed)
+    if settings.DoesExist("saveLogs") then section.Write("log", settings.saveLogs)
     section.Flush()
 end sub
 
@@ -48,6 +54,7 @@ function SettingOptions(key as String) as Object
     if key = "photoSeconds" then return [3, 5, 8, 10, 15, 30]
     if key = "transition" then return TransitionNames()   ' lib/Transitions.brs
     if key = "speed" then return ["slow", "normal", "fast"]
+    if key = "saveLogs" then return ["on", "off"]
     return []
 end function
 

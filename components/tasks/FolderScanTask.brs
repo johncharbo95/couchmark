@@ -35,6 +35,6 @@ sub scan()
         child.AddFields({ paths: paths })
     end for
 
-    print "[FolderScanTask] "; m.top.mode; ": "; entries.Count(); " entries in "; FormatJson(m.top.paths)
+    LogInfo("FolderScanTask", m.top.mode + ": " + entries.Count().ToStr() + " entries; listings: " + ListingCounts(m.top.paths))
     m.top.content = content
 end sub

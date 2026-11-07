@@ -10,4 +10,5 @@
         <field id="result" type="assocarray" />
     </interface>
     <script type="text/brightscript" uri="UsbScanTask.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Log.brs" />
 </component>

@@ -277,7 +277,7 @@ end sub
 ' A file couldn't be shown: move on, unless nothing in the folder works.
 sub skipBroken()
     m.failures = m.failures + 1
-    print "[Slideshow] skipping "; m.items[m.index].path
+    LogWarn("Slideshow", "skipping " + m.items[m.index].path)
     if m.failures >= m.items.Count()
         m.top.navigate = {
             screen: "MessageScreen"
@@ -323,7 +323,7 @@ sub onVideoState()
     if state = "finished"
         showItem(nextIndex())
     else if state = "error"
-        print "[Slideshow] video error: "; m.video.errorMsg
+        LogError("Slideshow", PlayerErrorText(m.video, m.items[m.index].path))
         skipBroken()
     else if state = "playing"
         m.failures = 0

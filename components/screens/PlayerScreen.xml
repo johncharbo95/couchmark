@@ -27,6 +27,7 @@
     </interface>
 
     <script type="text/brightscript" uri="PlayerScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Log.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />

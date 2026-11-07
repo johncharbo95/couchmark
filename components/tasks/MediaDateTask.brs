@@ -34,6 +34,6 @@ sub readDates()
         sorted.Push(items[entry.index])
     end for
 
-    print "[MediaDateTask] "; total; " items in "; FormatJson(m.top.paths)
+    LogInfo("MediaDateTask", total.ToStr() + " items in " + FormatJson(m.top.paths))
     m.top.items = sorted
 end sub

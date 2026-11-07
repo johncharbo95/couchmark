@@ -22,6 +22,7 @@
     </interface>
 
     <script type="text/brightscript" uri="SlideshowScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Log.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Settings.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Transitions.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/MediaTypes.brs" />

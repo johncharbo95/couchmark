@@ -1,5 +1,5 @@
 ' ============================================================================
-' MainScene.brs — screen stack + USB library scanning
+' MainScene.brs — screen stack + USB library scanning + debug log collector
 ' ============================================================================
 
 sub init()
@@ -19,7 +19,50 @@ sub init()
     '   }
     m.global.AddFields({ library: {} })
 
+    startLog()
+    logAppStart()
     startUsbScan()
+end sub
+
+' ----------------------------------------------------------------------------
+' Debug log (lib/Log.brs): every thread sets m.global.logLine; we collect
+' the lines here and hand them to the one LogTask, which writes the file.
+' Lines logged before LogTask is listening wait in m.logBacklog.
+' ----------------------------------------------------------------------------
+
+sub startLog()
+    m.logBacklog = []
+    m.logTask = CreateObject("roSGNode", "LogTask")
+    m.logTask.enabled = (SettingsGet().saveLogs = "on")
+    m.logTask.ObserveField("ready", "flushLogBacklog")
+    m.global.AddField("logLine", "string", true)
+    m.global.AddFields({ logTask: m.logTask })
+    m.global.ObserveField("logLine", "onLogLine")
+    m.logTask.control = "run"
+end sub
+
+sub onLogLine(event as Object)
+    m.logBacklog.Push(event.GetData())
+    flushLogBacklog()
+end sub
+
+sub flushLogBacklog()
+    if not m.logTask.ready or m.logBacklog.Count() = 0 then return
+    m.logTask.lines = m.logBacklog
+    m.logBacklog = []
+end sub
+
+sub logAppStart()
+    app = CreateObject("roAppInfo")
+    device = CreateObject("roDeviceInfo")
+    LogInfo("App", app.GetTitle() + " " + app.GetVersion() + " starting")
+    build = BuildInfoText(ReadBuildInfo())
+    if build <> "" then LogInfo("App", build) else LogInfo("App", "release build")
+    LogInfo("App", "Roku " + device.GetModel() + " (" + device.GetModelDisplayName() + "), OS " + FormatJson(device.GetOSVersion()) + ", display " + device.GetDisplayMode())
+end sub
+
+sub onUsbEvent()
+    LogInfo("USB", m.top.usbEvent)
 end sub
 
 ' ----------------------------------------------------------------------------
@@ -52,8 +95,10 @@ sub onUsbScanDone(event as Object)
     hasAnything = roots.movies.Count() + roots.shows.Count() + roots.other.Count() > 0
 
     if hasAnything
+        LogInfo("App", "library found: showing the home screen")
         pushScreen(CreateObject("roSGNode", "HomeScreen"))
     else
+        LogWarn("App", "nothing to show: " + library.volumes.Count().ToStr() + " USB volume(s), no Movies/Shows/Other folder")
         msg = CreateObject("roSGNode", "MessageScreen")
         if library.volumes.Count() = 0
             msg.title = "No USB drive found"

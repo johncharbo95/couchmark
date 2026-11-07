@@ -20,23 +20,29 @@ sub scan()
     roots = { movies: [], shows: [], other: [] }
 
     volumes = []
+    all = []
     for each volume in fs.GetVolumeList()
+        all.Push(volume)
         if Left(volume, 3) = "ext" then volumes.Push(volume)
     end for
     volumes.Sort()
+    LogInfo("UsbScanTask", "all volumes: " + all.Join(", "))
 
     for each volume in volumes
         volumeRoot = volume + "/"
+        names = []
         for each name in fs.GetDirectoryListing(volumeRoot)
+            names.Push(name)
             key = wanted[LCase(name)]
             path = volumeRoot + name
             if key <> invalid and isDirectory(fs, path)
                 roots[key].Push(path)
             end if
         end for
+        LogInfo("UsbScanTask", volumeRoot + " has " + names.Count().ToStr() + " entries: " + LogNameList(names, 40))
     end for
 
-    print "[UsbScanTask] volumes="; FormatJson(volumes); " roots="; FormatJson(roots)
+    LogInfo("UsbScanTask", "volumes=" + FormatJson(volumes) + " roots=" + FormatJson(roots))
     m.top.result = { volumes: volumes, roots: roots }
 end sub
 

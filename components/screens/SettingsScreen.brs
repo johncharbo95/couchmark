@@ -3,6 +3,7 @@
 '
 ' Rows (each ContentNode has a "key" field):
 '   photoSeconds / transition / speed   values from SettingOptions()
+'   saveLogs                            debug log on/off (tells LogTask)
 '   clear                               clear watch history (OK twice)
 '   about                               version, read-only
 ' ============================================================================
@@ -28,6 +29,7 @@ sub buildRows()
     addRow(rows, "photoSeconds", "Photo duration")
     addRow(rows, "transition", "Transition")
     addRow(rows, "speed", "Transition speed")
+    addRow(rows, "saveLogs", "Save debug logs to USB")
     addRow(rows, "clear", "Clear watch history")
     addRow(rows, "about", "About Couchmark")
     m.list.content = rows
@@ -63,17 +65,19 @@ sub onItemFocused()
     ' Moving away cancels a half-done "clear history".
     if m.confirmingClear and row.key <> "clear"
         m.confirmingClear = false
-        updateRow(m.list.content.GetChild(3))
+        updateRow(rowByKey("clear"))
     end if
 
     hints = {
         photoSeconds: "How long each photo stays on screen in a slideshow. Videos always play to the end."
         transition: "How one photo changes to the next. Random picks a different effect each time."
         speed: "How long the transition takes: slow 1.5 s, normal 0.8 s, fast 0.4 s."
+        saveLogs: "Writes what Couchmark does to Couchmark/logs on your USB drive (one file per day, last 7 days kept), to help find problems. Nothing is sent anywhere."
         clear: "Forgets every resume point and watched mark for movies and shows. Your files are not touched."
         about: "Open source, MIT license. Plays media from USB drives; nothing leaves your TV."
     }
     m.hint.text = hints[row.key]
+    if row.key = "saveLogs" then m.hint.text = m.hint.text + Chr(10) + logTargetText()
     ' Development builds: also show which commit is running.
     if row.key = "about"
         build = BuildInfoText(ReadBuildInfo())
@@ -85,6 +89,29 @@ function focusedRow() as Dynamic
     if m.list.content = invalid or m.list.itemFocused < 0 then return invalid
     return m.list.content.GetChild(m.list.itemFocused)
 end function
+
+function rowByKey(key as String) as Dynamic
+    for each row in m.list.content.GetChildren(-1, 0)
+        if row.key = key then return row
+    end for
+    return invalid
+end function
+
+' Where the log is being written right now (LogTask.target).
+function logTargetText() as String
+    if m.settings.saveLogs <> "on" then return "Off: nothing is written."
+    logTask = m.global.logTask
+    if logTask = invalid or logTask.target = "" then return "No folder could be written yet."
+    if Left(logTask.target, 4) = "tmp:" then return "No writable USB drive: the log is kept on the TV until it restarts."
+    return "Saving to " + logTask.target
+end function
+
+' The Log task follows the setting right away.
+sub applyLogSetting()
+    logTask = m.global.logTask
+    if logTask <> invalid then logTask.enabled = (m.settings.saveLogs = "on")
+    LogInfo("Settings", "save debug logs: " + m.settings.saveLogs)
+end sub
 
 ' Left / Right change the value (the list itself only uses Up / Down).
 function onKeyEvent(key as String, press as Boolean) as Boolean
@@ -100,6 +127,10 @@ function changeFocused(delta as Integer) as Boolean
     m.settings[row.key] = NextSettingValue(row.key, m.settings[row.key], delta)
     SettingsSave(m.settings)
     updateRow(row)
+    if row.key = "saveLogs"
+        applyLogSetting()
+        onItemFocused()   ' refresh the hint
+    end if
     return true
 end function
 

@@ -28,7 +28,7 @@ function buildLibrary() as Object
         movies.Push({ title: entry.title, path: entry.path, art: FindArtwork([entry.path]) })
     end for
 
-    print "[HomeScanTask] library: "; shows.Count(); " shows, "; movies.Count(); " movies"
+    LogInfo("HomeScanTask", "library: " + shows.Count().ToStr() + " shows, " + movies.Count().ToStr() + " movies; listings: " + ListingCounts(roots.shows) + "; " + ListingCounts(roots.movies))
     return { shows: shows, movies: movies }
 end function
 
@@ -45,7 +45,7 @@ function buildContinue() as Object
         end if
         if tile <> invalid then tiles.Push(tile)
     end for
-    print "[HomeScanTask] continue: "; tiles.Count(); " tiles"
+    LogInfo("HomeScanTask", "continue: " + tiles.Count().ToStr() + " tiles")
     return tiles
 end function
 
@@ -54,9 +54,15 @@ function movieTile(record as Object) as Dynamic
 
     ' Titles come from the registry; the drive may have changed since.
     folders = FindTitleFolders(m.top.roots.movies, record.title)
-    if folders.Count() = 0 then return invalid
+    if folders.Count() = 0
+        LogWarn("HomeScanTask", "continue: movie folder not found: " + record.title)
+        return invalid
+    end if
     parts = ScanVideos([folders[0]], false)
-    if record.part >= parts.Count() then return invalid
+    if record.part >= parts.Count()
+        LogWarn("HomeScanTask", "continue: " + record.title + " resumes at part " + (record.part + 1).ToStr() + " but has " + parts.Count().ToStr() + " video(s)")
+        return invalid
+    end if
 
     return {
         kind: "movie"
@@ -71,7 +77,10 @@ end function
 
 function showTile(record as Object) as Dynamic
     folders = FindTitleFolders(m.top.roots.shows, record.title)
-    if folders.Count() = 0 then return invalid
+    if folders.Count() = 0
+        LogWarn("HomeScanTask", "continue: show folder not found: " + record.title)
+        return invalid
+    end if
 
     show = ScanShow(folders)
     target = ContinueTarget(record, show.items)

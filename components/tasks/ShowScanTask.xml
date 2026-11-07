@@ -19,4 +19,6 @@
     <script type="text/brightscript" uri="pkg:/components/lib/NaturalSort.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Log.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/ScanReport.brs" />
 </component>

@@ -11,6 +11,7 @@
     <script type="text/brightscript" uri="pkg:/components/lib/Transitions.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/BuildInfo.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Log.brs" />
 
     <children>
         <Label text="Settings" translation="[155, 90]">
@@ -23,11 +24,11 @@
             itemComponentName="ListItem"
             itemSize="[1610, 84]"
             itemSpacing="[0, 8]"
-            numRows="6"
+            numRows="7"
             drawFocusFeedback="false"
             vertFocusAnimationStyle="floatingFocus" />
 
-        <Label id="hint" translation="[155, 820]" width="1610" wrap="true" color="0x8A96A3FF">
+        <Label id="hint" translation="[155, 880]" width="1610" wrap="true" color="0x8A96A3FF">
             <Font role="font" uri="font:SystemFontFile" size="30" />
         </Label>
     </children>

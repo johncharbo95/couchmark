@@ -11,10 +11,16 @@
     <interface>
         <!-- Set by main.brs whenever a USB drive is added or removed. -->
         <field id="volumesChanged" type="boolean" alwaysNotify="true" onChange="onVolumesChanged" />
+        <!-- Set by main.brs just before volumesChanged: what happened, for the log. -->
+        <field id="usbEvent" type="string" alwaysNotify="true" onChange="onUsbEvent" />
     </interface>
 
     <script type="text/brightscript" uri="MainScene.brs" />
     <script type="text/brightscript" uri="pkg:/components/lib/Text.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Log.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Settings.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Transitions.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/BuildInfo.brs" />
 
     <children>
         <Rectangle id="background" width="1920" height="1080" color="0x101418FF" />

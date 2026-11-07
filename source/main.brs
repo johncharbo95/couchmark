@@ -28,8 +28,20 @@ sub Main(args as Dynamic)
         if msgType = "roSGScreenEvent"
             if msg.IsScreenClosed() then return
         else if msgType = "roFileSystemEvent"
-            print "[main] USB change: "; msg.GetMessage()
+            ' (MainScene writes it to the debug log; there's no m.global here.)
+            scene.usbEvent = usbEventText(msg)
             scene.volumesChanged = true
         end if
     end while
 end sub
+
+' "drive added: ext1:" / "drive removed: ext1:" / "change: ..."
+function usbEventText(msg as Object) as String
+    what = "change"
+    if msg.IsStorageDeviceAdded()
+        what = "drive added"
+    else if msg.IsStorageDeviceRemoved()
+        what = "drive removed"
+    end if
+    return what + ": " + msg.GetMessage()
+end function

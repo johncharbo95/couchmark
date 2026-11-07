@@ -69,7 +69,7 @@ Official references: [SceneGraph](https://developer.roku.com/docs/developer-prog
 manifest                  App name, version, icons, resolution (fhd)
 source/main.brs           Entry point + USB plug/unplug events
 components/
-  MainScene.xml/.brs      Root scene: screen stack, USB scanning, Back key
+  MainScene.xml/.brs      Root scene: screen stack, USB scanning, Back key, debug log collector
   screens/                Full-screen pages (all extend BaseScreen)
     BaseScreen.xml        Declares the "navigate" field
     HomeScreen            Netflix-style home: hero + rows (Continue Watching, Shows, Movies, Browse)
@@ -77,7 +77,7 @@ components/
     ShowScreen            A show's page: Continue button, seasons | episodes
     FolderListScreen      A–Z lists of all movies or shows; the Other folder browser
     SlideshowScreen       Dated photo/video slideshow with preloading and transitions
-    SettingsScreen        Photo duration, transition, speed, clear history, version
+    SettingsScreen        Photo duration, transition, speed, debug logs, clear history, version
     ResumeDialog          "Resume from … / Start over" (episodes)
     PlayMovie.brs         Play/Pause on a movie tile/row: scan its parts, start the player (Home, FolderList)
     PlayerScreen          Video playback with custom controls; saves progress
@@ -88,6 +88,7 @@ components/
     FolderScanTask        Lists subfolders or video files (+ a movie's artwork)
     ShowScanTask          Reads one show's seasons + episodes (+ artwork)
     MediaDateTask         Lists a folder's photos/videos and sorts them by date taken
+    LogTask               Runs all session: the only writer of the debug log file
   widgets/                Reusable pieces
     MediaTile             16:9 tile with artwork, progress bar, ✓ (RowList item)
     ListItem              List row with title, detail text, badge (MarkupList item)
@@ -101,6 +102,8 @@ components/
     ListRowStyle.brs      ListItem looks: classic bar, or the show page's cursor / selected-season styles
     Progress.brs          Registry storage of playback progress + pruning
     Settings.brs          User settings: storage, choices, labels, next/previous value
+    Log.brs               Debug log: LogInfo/LogWarn/LogError, line format, daily file, rotation, size cap
+    ScanReport.brs        Log text about raw folder listings vs. what a scan kept
     Transitions.brs       What each transition does (start/end values per slot)
     MediaDate.brs         Date taken: EXIF, MP4/MOV mvhd (partial reads), file mtime; EXIF orientation
     NaturalSort.brs       Natural sort keys, S01E02 / 1x02 detection
@@ -300,6 +303,44 @@ Home and the A–Z list only know a movie's folder, so `PlayMovie()` (in `screen
 
 Rows are ListItems with a `key` field. Left/Right (unused by the vertical list, so they reach `SettingsScreen.onKeyEvent`) call `NextSettingValue()` and save immediately with `SettingsSave()`. The slideshow reads settings when it starts. *Clear watch history* needs OK twice, and moving to another row cancels. It calls `ProgressClearAll()`, and the home screen's Continue Watching row updates when you return.
 
+### Debug log
+
+Any component or Task calls `LogInfo(tag, message)`, `LogWarn` or `LogError` (`lib/Log.brs`). Each call `print`s the line, as before, and also saves it to `<drive>/Couchmark/logs/couchmark-YYYY-MM-DD.log`:
+
+```
+2026-10-24 21:05:03.042 INFO  [ShowScanTask] 3 seasons, 30 episodes in ["ext1:/Shows/X"]
+```
+
+**Threads.** Every Task has its own thread and its own `m`, and the render thread has another. If each thread wrote the file itself, two threads rewriting it at the same moment would lose each other's lines (Roku has no "append": a write replaces the whole file). So exactly one thread writes:
+
+```
+LogInfo() on any thread
+  └─ sets m.global.logLine           (string field, alwaysNotify)
+       └─ MainScene.onLogLine        (render thread: collects the line)
+            └─ logTask.lines = [...] (LogTask's field; it observes with a message port)
+                 └─ LogTask.writeLoop: batches lines, writes the file
+```
+
+- Setting a field on `m.global` from a Task is a normal, thread-safe SceneGraph field set. MainScene handles each one in its observer, so lines arrive in order and none are dropped.
+- **Startup:** a Task only starts listening once its thread runs. Until LogTask sets `ready`, MainScene keeps lines in `m.logBacklog` and then sends them all, so the app-start lines aren't lost.
+- `main.brs` has no `m.global`. For drive plug/unplug it sets `MainScene.usbEvent` (e.g. `drive added: ext1:`), and MainScene logs it.
+- An alternative would be to have each thread append to its own file, but then the user would have to merge several files by timestamp. A single writer keeps one readable file per day.
+
+**Writing the file (`LogStoreAppend`, LogTask thread only).**
+
+- **Batching:** LogTask writes at most once per second (`LogFlushMs()`), or at once if a batch contains an `ERROR` line, because the app may be about to crash.
+- **No append API:** the open day's text is kept in memory (`store.text`), the new lines are added, and the whole file is rewritten with `WriteAsciiFile`. Opening a file reads what's already there with `ReadAsciiFile`, so a second launch on the same day continues the file.
+- **Size cap:** `LogCapText()` keeps each file under `LogMaxChars()` (256 KB). When the cap is passed, whole lines are dropped from the start down to 3/4 of the cap, so trimming doesn't happen on every write.
+- **Rotation:** when a file is opened (first write, new day, other folder), `LogFilesToDelete()` keeps today's file plus the newest 6 others (`LogKeepDays()` = 7). Only files named `couchmark-YYYY-MM-DD.log` are ever deleted.
+- **Where:** `LogDirCandidates()` lists `extN:/Couchmark/logs` for each USB drive in order, then `tmp:/couchmark-logs`. The first folder that can be created *and* written wins. A folder that fails is skipped until the volume list changes (`store.failed`), so a read-only drive isn't retried every second. If a write fails (drive removed), the next folder is tried at once.
+- **Fallback:** lines written to `tmp:` are also kept in `store.carry`. When a drive becomes writable (it mounted late, or was plugged back in), they're added to the drive's file, so a session's log ends up in one place.
+- **Failures never crash:** every file call returns a status, and if nothing at all can be written the batch is simply dropped. LogTask's thread does the disk work, so the UI never waits for the drive.
+- **Off switch:** Settings → *Save debug logs to USB* (`saveLogs`, registry key `log`) sets `logTask.enabled`. When it's off, lines are still printed but not saved. `logTask.target` holds the folder in use, which the Settings hint shows.
+
+**What is logged:** app start (version, build info, model, OS version, display mode); `UsbScanTask` (every volume, each drive's top-level names, the roots found); `HomeScanTask` (counts, raw listing counts per root, Continue Watching titles whose folder is gone); `FolderScanTask` (entries kept and raw listing counts); `ShowScanTask` (for the show folder and each season folder: files listed, videos kept, names of skipped files, from `ListingReport()` in `lib/ScanReport.brs`); `MediaDateTask` (item count); the player (each item started, every state change, and on `error` the url, `errorMsg`, `errorCode`, plus `errorStr`/`errorInfo` where the OS has them, via `PlayerErrorText()`); slideshow skips and video errors; drive plug/unplug; the settings toggle. Remote key presses in the player are only `print`ed, since they would flood the file. `Progress.brs` still uses `print` because it is included in many places, including tests, that don't include `Log.brs`.
+
+Adding a log call: include `pkg:/components/lib/Log.brs` in the component's XML, then call `LogInfo("MyTag", "text " + count.ToStr())`. Messages are plain strings, so convert numbers with `.ToStr()` and arrays with `FormatJson()`.
+
 ### Registry schema
 
 Roku gives each app about 16 KB of persistent registry storage. The code for this lives in `components/lib/Progress.brs`.
@@ -308,7 +349,7 @@ Roku gives each app about 16 KB of persistent registry storage. The code for thi
 |---|---|---|---|
 | `progress` | `m` + 8 hex chars of MD5(lower-case movie folder name) | `lastUsed\|part\|parts\|pos\|dur\|watched\|title` | ✅ |
 | `progress` | `s` + 8 hex chars of MD5(lower-case show folder name) | `lastUsed\|lastEp\|watched\|partials\|title` | ✅ |
-| `settings` | `dur`, `tr`, `spd` | photo seconds, transition name, speed name | ✅ |
+| `settings` | `dur`, `tr`, `spd`, `log` | photo seconds, transition name, speed name, debug log `on`/`off` | ✅ |
 
 The `title` (folder name) lets the home screen build Continue Watching from the registry alone. It's the last field, so a title containing `|` still parses. Records saved before titles were added have no title. They still work, but they don't appear in Continue Watching until the title is played again.
 
@@ -334,7 +375,9 @@ Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay 
 | `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text, mark watched/unwatched (movies, episodes, seasons, "continue" never moves backwards), Up next countdown, seek clamping and scrub speeds |
 | `MediaDate.test.brs` | MP4/MOV `mvhd` dates on real files (`tests/fixtures/`), fallback to the file date |
 | `Transitions.test.brs` | every effect's start/end values, wipe keeps the picture still, random never picks none |
-| `Settings.test.brs` | defaults, save/load, damaged values, next/previous with wrap-around, labels |
+| `Settings.test.brs` | defaults, save/load, damaged values, next/previous with wrap-around, labels, debug log on/off |
+| `Log.test.brs` | line and time format, file names, which old days to delete, size cap at line boundaries, folder order, player error text, writing: drive, read-only drive → next drive / tmp:, late-mounted or re-plugged drive gets the tmp: lines, new day, rotation |
+| `ScanReport.test.brs` | listed vs. kept counts, skipped file names, listing counts per folder |
 | `ShowNav.test.brs` | show page keys between Continue / seasons / episodes, season of an episode, where the episode cursor lands when a season opens |
 | `ListRowStyle.test.brs` | classic row look unchanged; show page: one cursor only in the focused list, selected season distinct from the cursor and kept while the cursor is elsewhere |
 
@@ -358,6 +401,8 @@ Directives at the top tell `tests/run.js` what to load:
 - `' @double path`: a *test double*. Functions it defines replace the same-named functions in the included code, but only in the test build; app code doesn't change. Doubles exist for the things that need a Roku:
   - `tests/doubles/Registry.brs`: in-memory registry sections (`progressSection()`, `settingsSection()`), a stand-in for MD5, and a fake clock.
   - `tests/doubles/Files.brs`: file reads from fixtures, a fixed file date, UTC offset 0.
+  - `tests/doubles/LogFiles.brs`: a fake file system for `lib/Log.brs` (volumes, read-only volumes, files), a fixed clock, and `logSend()` collecting lines.
+  - `tests/doubles/Listing.brs`: folder listings for `lib/ScanReport.brs`.
 - `' @fixture path`: a file whose bytes become available to the Files double (call `loadFixtures()` first).
 
 Run one file with `npm test -- Progress`.
@@ -408,7 +453,8 @@ If the tag and version don't match, the release fails before anything is publish
 
 ## Debugging tips
 
-- `print` statements appear in the VS Code Debug Console, or via `telnet <roku-ip> 8085`.
+- `print` statements and `LogInfo`/`LogWarn`/`LogError` lines appear in the VS Code Debug Console, or via `telnet <roku-ip> 8085`.
+- Without a computer attached, read the drive's `Couchmark/logs/couchmark-YYYY-MM-DD.log` (see [Debug log](#debug-log)).
 - A crash drops into the BrightScript debugger, which shows the file and line. Type `bt` for a backtrace and `var` for local variables.
 - The dev web page at `http://<roku-ip>` has a **Utilities → Screenshot** button.
 - To test without a drive, unplug it: the "No USB drive found" screen should appear, and plugging the drive back in should reach the home screen within a few seconds.
@@ -418,4 +464,5 @@ If the tag and version don't match, the release fails before anything is publish
 - Every `.brs` file starts with a header comment that explains its job. Comments explain *why*, not what.
 - UI is laid out for 1920×1080 (`ui_resolutions=fhd`).
 - Colours: background `#101418`, card `#1E252D`, focus `#2A3440`, accent `#3D7EFF`, secondary text `#8A96A3`.
-- The USB drive is read-only. Never write, rename or delete files on it.
+- Treat the USB drive as read-only. Never write, rename or delete files on it, with one exception: LogTask writes and rotates its own `couchmark-*.log` files in `Couchmark/logs`.
+- Use `LogInfo`/`LogWarn`/`LogError` rather than `print` for anything that would help explain a problem later.

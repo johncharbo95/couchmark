@@ -17,7 +17,8 @@ Everything runs on the TV. There is no server, account, or companion app: plug i
 | Watched marks | Mark movies, episodes or whole seasons as watched / unwatched with the ✱ button. | ✅ |
 | Other | Browse folders and play a slideshow of all photos and videos in a folder, ordered by the date they were taken. | ✅ |
 | Transitions | None, fade, slide, push, wipe, zoom, random, at three speeds. The next photo is preloaded, so there's never a black flash. | ✅ |
-| Settings | Photo duration, transition type and speed, clear watch history. | ✅ |
+| Settings | Photo duration, transition type and speed, debug logs on/off, clear watch history. | ✅ |
+| Debug logs | A daily log file on the USB drive, so you can see what happened when something goes wrong. | ✅ |
 
 ## Setting up your USB drive
 
@@ -48,7 +49,7 @@ Other/
 - Hidden and system files (`.DS_Store`, `Thumbs.db`, `._*` files) are ignored.
 - Folder names are not case-sensitive (`movies` works too).
 - Several drives work: if two drives each have a `Movies` folder, you see one combined list.
-- Couchmark never writes to your drive.
+- Couchmark never changes your media. The only thing it writes is its debug log in a `Couchmark/logs` folder (see [Debug logs](#debug-logs)); you can turn that off in Settings.
 
 ### Artwork (optional)
 
@@ -186,7 +187,38 @@ Open **Browse → Settings**. Use Up/Down to choose a setting and Left/Right (or
 | Photo duration | 3, 5, 8, 10, 15 or 30 seconds |
 | Transition | None, Fade, Slide, Push, Wipe, Zoom, Random |
 | Transition speed | Slow (1.5 s), Normal (0.8 s), Fast (0.4 s) |
+| Save debug logs to USB | On (default) or Off. See [Debug logs](#debug-logs). The help line shows where the log is being saved. |
 | Clear watch history | Press OK twice. Forgets all resume points and ✓ marks; your files are not touched. |
+
+### Debug logs
+
+If something goes wrong (an episode is missing, a video won't play, the app closes), the log shows what Couchmark saw. Unplug the drive, put it in a computer, and open:
+
+```
+Couchmark/logs/couchmark-2026-10-24.log      ← one file per day
+```
+
+Any text editor can open it. Each line has the time, a level (`INFO`, `WARN`, `ERROR`), where it came from, and what happened:
+
+```
+2026-10-24 21:05:03.042 INFO  [App] Couchmark 0.2.0 starting
+2026-10-24 21:05:04.310 INFO  [UsbScanTask] volumes=["ext1:"] roots={"movies":["ext1:/Movies"],...}
+2026-10-24 21:06:12.800 INFO  [ShowScanTask] ext1:/Shows/The Office/Season 1: 14 listed, 12 videos; skipped: S01E07.avi.part, notes.nfo
+2026-10-24 21:07:40.115 ERROR [Player] playback error: ext1:/Movies/X/X.mkv | errorMsg=... | errorCode=-5
+```
+
+Useful things to look for:
+
+- **Missing episode or movie:** find the `ShowScanTask` or `FolderScanTask` line for its folder. It counts the files the TV listed and the videos kept, and names the files that were skipped (unsupported extension, hidden file, …).
+- **A video won't play:** search for `ERROR`. The `Player` line has the file and the Roku's error message and code.
+- **Drive not found:** `UsbScanTask` lists every volume the TV reports and the folders at the top of each drive. `USB` lines show drives being plugged in or removed.
+
+Details:
+
+- The log goes on the first USB drive that can be written. Couchmark keeps the last 7 days and each file stays under about 256 KB, so it never fills the drive. Your media files are never touched.
+- If no drive can be written (for example a file system the Roku can only read, or no drive plugged in), the log is kept on the TV in temporary storage instead and is lost when the TV restarts. Lines written there are copied to the drive once it's available again.
+- Lines are saved about once a second (errors immediately), so the last second before a crash may be missing.
+- Nothing is ever sent off your TV. Turn it off with **Settings → Save debug logs to USB**.
 
 ## Known limitations
 
