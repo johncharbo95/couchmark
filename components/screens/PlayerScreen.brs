@@ -54,7 +54,10 @@ sub init()
     m.holdTimer.ObserveField("fire", "onHoldTimer")
     m.scrubTimer = m.top.FindNode("scrubTimer")
     m.scrubTimer.ObserveField("fire", "onScrubTick")
+    m.seekTimer = m.top.FindNode("seekTimer")
+    m.seekTimer.ObserveField("fire", "onSeekTimer")
     m.scrubClock = CreateObject("roTimespan")
+    m.seekClock = CreateObject("roTimespan")   ' time since the last seek (for the log)
 
     ' Seek to the exact time asked for, not the nearest keyframe (which can
     ' be several seconds earlier), where this Roku supports it.
@@ -64,8 +67,10 @@ sub init()
     m.started = false
     m.lastSavedAt = 0
     m.pendingSeek = -1      ' target of a seek that hasn't finished yet
-    m.seekSettling = false  ' a seek is underway: restore play/pause after it
-    m.seekBuffered = false  ' ...and the video has started buffering for it
+    m.seekInFlight = false  ' the Video node is still carrying out a seek
+    m.seekBuffered = false  ' ...and has started buffering for it
+    m.queuedSeek = -1       ' target to send once that seek lands (-1 = none)
+    m.seekSettling = false  ' a burst of seeks is underway: restore play/pause after it
     m.seekWasPaused = false ' ...and the video was paused when it started
     m.focusRow = "bar"      ' "bar" (scrubber) or "buttons"
     m.button = 0            ' focused button index
@@ -87,6 +92,7 @@ sub playItem(index as Integer, startPos as Integer)
     m.index = index
     m.lastSavedAt = startPos
     m.pendingSeek = -1
+    resetSeek()
     m.seekSettling = false
     m.itemCompleted = false
     item = m.items[index]
@@ -169,8 +175,11 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
 end function
 
 sub togglePause()
+    ' Mid-seek the video is paused by sendSeek(): go by how it was before.
+    paused = (m.video.state = "paused")
+    if m.seekSettling then paused = m.seekWasPaused
     m.seekSettling = false   ' the user decides play/pause from here on
-    if m.video.state = "paused"
+    if paused
         m.video.control = "resume"
     else
         m.video.control = "pause"
@@ -181,17 +190,75 @@ end sub
 ' Seeks relative to the current position. Several quick presses add up,
 ' because each one starts from the previous target, not the (lagging)
 ' playback position. Play/pause is kept: see onVideoStateChange().
+' The first press seeks at once. Presses that come while that seek is
+' still underway only move the target; it is sent when the seek lands
+' (seekLanded), because seeking on top of a seek can leave the sound out
+' of step with the picture.
 sub seekBy(seconds as Integer)
     if not m.seekSettling
         m.seekSettling = true
-        m.seekBuffered = false
         m.seekWasPaused = (m.video.state = "paused")
     end if
     target = ClampSeek(currentTarget() + seconds, m.video.duration)
     m.pendingSeek = target
-    m.video.seek = target
+    if m.seekInFlight then m.queuedSeek = target else sendSeek(target)
     showControls()
     updateBar(target)
+end sub
+
+' Tells the Video node to seek. Pausing first silences the old position
+' right away, instead of letting it play on while the new one loads; the
+' play/pause state is put back when the burst settles.
+sub sendSeek(target as Float)
+    m.queuedSeek = -1
+    state = m.video.state
+    LogInfo("Player", "seek " + Int(m.video.position).ToStr() + "s -> " + Int(target).ToStr() + "s (" + state + ")")
+    if state = "playing" then m.video.control = "pause"
+    m.video.seek = target
+    m.seekInFlight = true
+    m.seekBuffered = false
+    m.seekClock.Mark()
+    m.lastSavedAt = target   ' no progress save right on top of the seek
+    m.seekTimer.control = "stop"
+    m.seekTimer.control = "start"
+end sub
+
+' The Video node finished a seek: send the next one, or, at the end of a
+' burst, put play/pause back the way it was.
+sub seekLanded(state as String)
+    LogInfo("Player", "seek landed at " + Int(m.video.position).ToStr() + "s after " + m.seekClock.TotalMilliseconds().ToStr() + " ms (" + state + ")")
+    m.seekInFlight = false
+    m.seekTimer.control = "stop"
+    if m.queuedSeek >= 0
+        sendSeek(m.queuedSeek)
+        return
+    end if
+    if not m.scrubbing then m.pendingSeek = -1
+    if m.seekSettling
+        m.seekSettling = false
+        control = SeekSettleControl(m.seekWasPaused, state)
+        if control <> "" then m.video.control = control
+    end if
+end sub
+
+' Safety net: the seek never reported landing (no buffering seen).
+sub onSeekTimer()
+    if not m.seekInFlight then return
+    state = m.video.state
+    if state = "buffering"
+        m.seekTimer.control = "start"   ' still loading: check again later
+    else if state = "playing" or state = "paused"
+        seekLanded(state)
+    else
+        m.seekInFlight = false
+    end if
+end sub
+
+' Forgets any seek underway (new item, leaving the player).
+sub resetSeek()
+    m.seekTimer.control = "stop"
+    m.seekInFlight = false
+    m.queuedSeek = -1
 end sub
 
 ' Where playback is, or is about to be after a seek still in progress.
@@ -219,7 +286,7 @@ sub seekKeyUp()
         m.scrubTimer.control = "stop"
         m.scrubbing = false
         m.pendingSeek = m.scrubTarget
-        m.video.seek = m.scrubTarget
+        sendSeek(m.scrubTarget)
         if m.resumeAfterScrub then m.video.control = "resume"
         showControls()
     else if m.seekDirection <> 0
@@ -234,6 +301,7 @@ sub onHoldTimer()
     if m.seekDirection = 0 then return
     m.scrubbing = true
     m.scrubTarget = currentTarget()
+    m.queuedSeek = -1   ' the scrub's own seek replaces it
     if m.seekSettling
         m.resumeAfterScrub = not m.seekWasPaused   ' mid-seek: state is "buffering"
         m.seekSettling = false
@@ -258,6 +326,7 @@ end sub
 
 sub leave()
     m.hideTimer.control = "stop"
+    resetSeek()
     saveProgress(false)
     m.video.control = "stop"
     m.top.navigate = { action: "back" }
@@ -416,7 +485,7 @@ sub onPositionChange()
     position = m.video.position
 
     ' A seek has finished once playback reaches its target.
-    if m.pendingSeek >= 0 and Abs(position - m.pendingSeek) < 2 then m.pendingSeek = -1
+    if m.pendingSeek >= 0 and m.queuedSeek < 0 and Abs(position - m.pendingSeek) < 2 then m.pendingSeek = -1
     if m.controls.visible and not m.scrubbing then updateBar(-1)
     updateUpNext()
 
@@ -491,16 +560,15 @@ sub onVideoStateChange()
 
     ' A seek has finished once playback settles; from then on show the real
     ' position (it may differ slightly from the target on some videos).
-    if (state = "playing" or state = "paused") and not m.scrubbing then m.pendingSeek = -1
+    ' (Not while a seek is still queued: it hasn't even started.)
+    if (state = "playing" or state = "paused") and not m.scrubbing and not m.seekInFlight then m.pendingSeek = -1
 
-    ' The Roku may resume a paused video when it seeks (or the reverse).
-    ' Once the seek has buffered and settled, put play/pause back.
-    if m.seekSettling and state = "buffering" then m.seekBuffered = true
-    if m.seekSettling and m.seekBuffered and (state = "playing" or state = "paused")
-        m.seekSettling = false
-        control = SeekSettleControl(m.seekWasPaused, state)
-        if control <> "" then m.video.control = control
-    end if
+    ' A seek has landed once it has buffered and settled. (The "paused"
+    ' from sendSeek's own pause comes before the buffering, so it doesn't
+    ' count.) The Roku may also resume a paused video when it seeks, or the
+    ' reverse: seekLanded() puts play/pause back.
+    if m.seekInFlight and state = "buffering" then m.seekBuffered = true
+    if m.seekInFlight and m.seekBuffered and (state = "playing" or state = "paused") then seekLanded(state)
 
     m.spinner.visible = (state = "buffering")
     if m.spinner.visible then m.spinner.control = "start" else m.spinner.control = "stop"

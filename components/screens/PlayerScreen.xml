@@ -79,5 +79,7 @@
         <Timer id="holdTimer" duration="0.4" repeat="false" />
         <!-- While scrubbing, moves the target every 0.1 s. -->
         <Timer id="scrubTimer" duration="0.1" repeat="true" />
+        <!-- Safety net if a seek never reports landing (see onSeekTimer). -->
+        <Timer id="seekTimer" duration="1" repeat="false" />
     </children>
 </component>
