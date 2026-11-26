@@ -1,5 +1,6 @@
 # Runs lint + unit tests on every push and pull request, and builds the
-# sideloadable zip (downloadable from the run's "Artifacts").
+# same files a release would publish (downloadable from the run's
+# "Artifacts"): the sideloadable app zip, the USB starter zip, checksums.
 name: CI
 
 on:
@@ -27,10 +28,12 @@ jobs:
       - name: Check versions agree (manifest / package.json)
         run: npm run --silent app-version
 
-      - name: Build couchmark.zip
-        run: npm run package
+      - name: Build and check the release files
+        run: npm run dist
 
       - uses: actions/upload-artifact@v4
         with:
-          name: couchmark-zip
-          path: out/couchmark.zip
+          name: couchmark-${{ github.sha }}
+          path: |
+            out/release/*.zip
+            out/release/SHA256SUMS.txt

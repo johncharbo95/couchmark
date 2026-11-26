@@ -4,7 +4,7 @@ This guide is for anyone changing the code. No prior Roku experience is assumed.
 
 ## Setup
 
-1. Put your Roku in **developer mode** (see the README's install section) and note its IP and password.
+1. Put your Roku in **developer mode** (see [INSTALL.md](INSTALL.md#step-1-turn-on-developer-mode-one-time)) and note its IP and password.
 2. Install [VS Code](https://code.visualstudio.com/) and the **BrightScript Language** extension (`RokuCommunity.brightscript`). VS Code suggests it when you open this folder.
 3. Copy `.env.example` to `.env` and fill in `ROKU_HOST` and `ROKU_PASSWORD`. `.env` is git-ignored; never commit credentials.
 4. Press **F5** (launch config *"Couchmark: deploy & debug on Roku"*). The extension zips the app, sideloads it, and attaches the debugger. `print` output appears in the Debug Console.
@@ -113,9 +113,9 @@ components/
     Text.brs              Shared user-facing strings
 images/                   Icons, splash screens, player icons, fade, ✓ badge
 tests/                    Unit tests run off-device with brs (not packaged), see Testing
-tools/                    Dev scripts (not packaged): placeholder images, version check, build info
-.github/workflows/        CI (lint + tests + zip on every push/PR) and Release (on v* tags)
-docs/                     Documentation (not packaged)
+tools/                    Dev scripts (not packaged): deploy, release files, version check, build info, placeholder images
+.github/workflows/        CI (lint + tests + release files on every push/PR) and Release (on v* tags)
+docs/                     Documentation (not packaged): INSTALL, USB-SETUP, USER-GUIDE (for users), DEVELOPMENT (this file)
 ```
 
 Only `manifest`, `source/`, `components/` and `images/` are packaged. This is set in both `.vscode/launch.json` and `bsconfig.json`; keep the two lists in sync.
@@ -454,18 +454,31 @@ On-device unit tests with [Rooibos](https://github.com/georgejecook/rooibos) wou
 
 - `npm ci`, then `npm run check` (lint + unit tests).
 - The version check (`npm run app-version`).
-- `npm run package`. The resulting `couchmark.zip` is attached to the run as an artifact, so anyone can sideload a pull request's build.
+- `npm run dist`, which builds exactly the files a release publishes (see below). They're attached to the run as an artifact (`couchmark-<commit>`), so anyone can sideload a pull request's build.
+
+**The release files** (`npm run dist` = `npm run package`, then `tools/release-assets.js`) go in `out/release/`:
+
+| File | What it is |
+|---|---|
+| `couchmark-vX.Y.Z.zip` | The app. A Roku "sideload" zip: `manifest`, `source/`, `components/`, `images/` at the top level, uploaded on the Roku's developer web page. |
+| `couchmark-usb-starter.zip` | Empty `Movies`, `Shows` and `Other` folders plus a short text guide, to unzip onto a USB drive. Built with fixed dates, so its checksum only changes when its content does. |
+| `SHA256SUMS.txt` | Checksums of both zips. |
+| `NOTES.md` | Install steps, used as the top of the GitHub release notes. |
+
+Before writing anything, `release-assets.js` opens the app zip and fails the build if `manifest` isn't at the top, its version differs from `tools/version.js`, or a dev-only file (`build-info.json`, `tests/`, `tools/`, `docs/`, `.env`) got in.
+
+**Why a sideload zip and not a signed `.pkg`:** a zip installed in developer mode is the only way to install an app that isn't in the Roku Channel Store. A signed `.pkg` is only needed to submit to the Channel Store or publish a beta channel through the Roku developer dashboard. Signing is done *on a Roku* with that developer's key (`genkey`, then the installer page's **Packager**), so it can't run on GitHub's servers. If Couchmark is ever published in the store, that becomes a manual step on a TV; the zip built here is what gets signed.
 
 **Releasing a version:**
 
 1. Update the version in **both** `manifest` (`major_version`, `minor_version`, `build_version`) and `package.json` (`"version"`), e.g. 0.3.0. Run `npm install` so `package-lock.json` follows.
-2. Update the README if features changed, run `npm run check`, and commit.
+2. Update the README and the guides in `docs/` if features changed, run `npm run check` and `npm run dist`, and commit.
 3. Tag and push the tag:
    ```sh
    git tag v0.3.0
    git push origin v0.3.0
    ```
-4. `.github/workflows/release.yml` checks that the tag matches the manifest version (`tools/version.js`), runs the checks, builds the zip, and creates a GitHub Release with `couchmark-v0.3.0.zip` attached and auto-generated notes.
+4. `.github/workflows/release.yml` checks that the tag matches the manifest version (`tools/version.js`), runs the checks, runs `npm run dist`, and creates a GitHub Release with `couchmark-v0.3.0.zip`, `couchmark-usb-starter.zip` and `SHA256SUMS.txt` attached. The notes start with `NOTES.md` (install steps, linking the guides at that tag), followed by GitHub's auto-generated list of changes.
 
 If the tag and version don't match, the release fails before anything is published. Delete the tag, fix the version, and tag again.
 

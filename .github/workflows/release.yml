@@ -29,16 +29,19 @@ jobs:
       - name: Lint and unit tests
         run: npm run check
 
-      - name: Build the zip
-        run: |
-          npm run package
-          cp out/couchmark.zip "out/couchmark-$GITHUB_REF_NAME.zip"
+      # Writes out/release/: couchmark-vX.Y.Z.zip, couchmark-usb-starter.zip,
+      # SHA256SUMS.txt and NOTES.md (tools/release-assets.js).
+      - name: Build and check the release files
+        run: npm run dist
 
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "out/couchmark-$GITHUB_REF_NAME.zip" \
+          gh release create "$GITHUB_REF_NAME" \
+            "out/release/couchmark-$GITHUB_REF_NAME.zip" \
+            out/release/couchmark-usb-starter.zip \
+            out/release/SHA256SUMS.txt \
             --title "Couchmark $GITHUB_REF_NAME" \
-            --notes "Download **couchmark-$GITHUB_REF_NAME.zip** below and install it on your Roku as described in the [README](https://github.com/$GITHUB_REPOSITORY#installing-on-your-roku-sideloading)." \
+            --notes-file out/release/NOTES.md \
             --generate-notes

@@ -10,10 +10,12 @@
     "check": "npm run lint && npm test",
     "deploy": "node tools/deploy.js",
     "package": "bsc --project bsconfig.json --createPackage --outFile out/couchmark.zip",
-    "app-version": "node tools/version.js"
+    "app-version": "node tools/version.js",
+    "dist": "npm run package && node tools/release-assets.js"
   },
   "devDependencies": {
     "brighterscript": "0.69.13",
-    "brs": "0.45.0"
+    "brs": "0.45.0",
+    "jszip": "3.10.2"
   }
 }
