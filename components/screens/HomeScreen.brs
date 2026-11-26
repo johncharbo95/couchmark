@@ -14,6 +14,7 @@
 ' ✱ (options) on a movie tile marks it watched / unwatched; on a Continue
 ' Watching tile it marks that movie / episode watched, so the row moves on.
 ' Play/Pause on a Continue Watching or movie tile starts playing it.
+' The clock (top right) is updated every second while the screen is shown.
 ' ============================================================================
 
 sub init()
@@ -24,6 +25,11 @@ sub init()
     m.loading = m.top.FindNode("loading")
     m.top.FindNode("buildInfo").text = BuildInfoText(ReadBuildInfo())
     m.toast = m.top.FindNode("toast")
+    m.clock = m.top.FindNode("clock")
+    m.clockTimer = m.top.FindNode("clockTimer")
+    m.clockTimer.ObserveField("fire", "updateClock")
+    updateClock()
+    m.clockTimer.control = "start"
 
     m.rows.ObserveField("rowItemSelected", "onTileSelected")
     m.rows.ObserveField("rowItemFocused", "onTileFocused")
@@ -44,8 +50,28 @@ sub onFocusedChildChange()
 end sub
 
 sub onVisibleChange()
+    if m.top.visible
+        updateClock()
+        m.clockTimer.control = "start"
+    else
+        m.clockTimer.control = "stop"
+    end if
     ' Back from the player etc.: progress may have changed.
     if m.top.visible and m.libraryData <> invalid then startScan("continue")
+end sub
+
+' ----------------------------------------------------------------------------
+' Clock
+' ----------------------------------------------------------------------------
+
+' The Roku sets its clock from the internet and applies the time zone
+' chosen in Settings → System → Time. Always shown in 24-hour format.
+sub updateClock()
+    now = CreateObject("roDateTime")
+    now.ToLocalTime()
+    parts = { weekday: now.GetDayOfWeek(), month: now.GetMonth(), day: now.GetDayOfMonth(), hour: now.GetHours(), minute: now.GetMinutes() }
+    text = FormatClock(parts)
+    if m.clock.text <> text then m.clock.text = text
 end sub
 
 ' ----------------------------------------------------------------------------

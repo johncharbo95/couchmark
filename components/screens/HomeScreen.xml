@@ -55,7 +55,13 @@
             <Font role="rowLabelFont" uri="font:BoldSystemFontFile" size="34" />
         </RowList>
 
-        <Label text="*  Mark as watched / unwatched" translation="[1224, 62]" width="600" horizAlign="right" color="0x8A96A3FF">
+        <!-- Date and time from the Roku (internet time, the TV's time zone). -->
+        <Label id="clock" translation="[1224, 52]" width="600" horizAlign="right" color="0xFFFFFFFF">
+            <Font role="font" uri="font:SystemFontFile" size="34" />
+        </Label>
+        <Timer id="clockTimer" duration="1" repeat="true" />
+
+        <Label text="*  Mark as watched / unwatched" translation="[1224, 100]" width="600" horizAlign="right" color="0x8A96A3FF">
             <Font role="font" uri="font:SystemFontFile" size="24" />
         </Label>
 

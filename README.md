@@ -85,6 +85,8 @@ Only one sideloaded app can be installed at a time, and installing another repla
 
 The home screen works like Netflix. Up/Down moves between rows, Left/Right scrolls a row, and the top of the screen describes the highlighted title.
 
+The date and time are shown at the top right in 24-hour format. Your Roku sets its clock from the internet; the time zone comes from the Roku's **Settings → System → Time**.
+
 - **Continue Watching:** everything you're partway through, most recent first. Press **OK once** to resume exactly where you stopped, or to start the next episode if you finished one.
 - **Shows** and **Movies:** your whole library. A blue bar shows how far you got, and a ✓ means watched (past 90%).
 - **Browse:** A–Z lists of all shows and movies, **Other** (slideshows), **Files** (every folder on the drive), and **Settings**.

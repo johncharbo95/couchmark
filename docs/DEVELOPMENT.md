@@ -108,7 +108,7 @@ components/
     MediaDate.brs         Date taken: EXIF, MP4/MOV mvhd (partial reads), file mtime; EXIF orientation
     NaturalSort.brs       Natural sort keys, S01E02 / 1x02 detection
     MediaTypes.brs        Supported extensions, junk-file filter, stream formats
-    Format.brs            Time formatting (1:02:14, "23 min")
+    Format.brs            Time formatting (1:02:14, "23 min", home clock)
     BuildInfo.brs         Development builds: read and format build-info.json
     Text.brs              Shared user-facing strings
 images/                   Icons, splash screens, player icons, fade, ✓ badge
@@ -175,6 +175,8 @@ Junk files (`.*`, `$*`, `Thumbs.db`, …) and unsupported extensions are skipped
 2. **`continue`** (every time the home screen reappears): `ProgressListRecent()` returns the saved records, newest first. For each one, the task finds the title's folder again, scans it, and builds a tile with **ready-made PlayerScreen fields**. That's why one OK press starts playback with no further scanning. Movies are included if they have a resume point. Shows are included if `ContinueTarget()` finds something to watch. The row holds at most 12 tiles.
 
 Each tile's `action` field says what OK does (`play`, `show`, `movie` or `browse`). The hero area at the top shows the focused tile's title, subtitle and artwork, faded into the background with `images/fade.png`. When rows are rebuilt, the focus is restored by row key and column.
+
+The clock at the top right is `updateClock()`: it reads `roDateTime` (`ToLocalTime()`, so the Roku's time zone; the Roku syncs its clock over the internet), and formats it in 24-hour format with `FormatClock()` in `lib/Format.brs` (unit-tested). A 1-second repeating `clockTimer` refreshes it while the home screen is visible and stops when another screen covers it; the label is only rewritten when the text changes.
 
 ### Movie and show pages
 
@@ -384,7 +386,7 @@ Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay 
 | `Scan.test.brs` | `ScanShow` on a real 24-episode season, loose episodes, seasons merged across drives, junk files; `ScanFiles` ordering and merging; `FilePlayerItems` |
 | `NaturalSort.test.brs` | "2" before "10", case, `S01E02` / `1x02` codes |
 | `MediaTypes.test.brs` | supported/junk files, extensions, episode-name cleanup |
-| `Format.test.brs` | `1:02:14`, "23 min", "-29:55 / 44:00" |
+| `Format.test.brs` | `1:02:14`, "23 min", "-29:55 / 44:00", "Wed, Nov 25  ·  19:05" |
 | `BuildInfo.test.brs` | the DEV line, uncommitted-changes flag, nothing shown for release builds |
 | `Progress.test.brs` | registry encoding round trips, titles with `\|`, resume-point limit, newest-first list, pruning to the size budget |
 | `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text, mark watched/unwatched (movies, episodes, seasons, "continue" never moves backwards), Up next countdown, seek clamping and scrub speeds, `FileContext` |

@@ -35,3 +35,13 @@ function pad2(value as Integer) as String
     if value < 10 then return "0" + value.ToStr()
     return value.ToStr()
 end function
+
+' Home screen clock, always 24-hour. `now` is { weekday (0 = Sunday),
+' month (1-12), day, hour (0-23), minute }.
+'   Wed 25 Nov 2026 19:05 -> "Wed, Nov 25  ·  19:05"
+function FormatClock(now as Object) as String
+    days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    dateText = days[now.weekday] + ", " + months[now.month - 1] + " " + now.day.ToStr()
+    return dateText + "  ·  " + pad2(now.hour) + ":" + pad2(now.minute)
+end function

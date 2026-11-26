@@ -14,5 +14,11 @@ sub Main()
     assertEqual(FormatRemainingOfTotal(10, 0), "", "length not known yet")
     assertEqual(pad2(7), "07", "pad")
     assertEqual(pad2(42), "42", "no pad")
+    evening = { weekday: 3, month: 11, day: 25, hour: 19, minute: 5 }
+    assertEqual(FormatClock(evening), "Wed, Nov 25  ·  19:05", "24 h evening")
+    midnight = { weekday: 0, month: 1, day: 1, hour: 0, minute: 0 }
+    assertEqual(FormatClock(midnight), "Sun, Jan 1  ·  00:00", "midnight is 00:00")
+    noon = { weekday: 6, month: 12, day: 31, hour: 12, minute: 30 }
+    assertEqual(FormatClock(noon), "Sat, Dec 31  ·  12:30", "noon is 12:30")
     finishTests()
 end sub
