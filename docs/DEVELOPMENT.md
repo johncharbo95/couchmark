@@ -1,0 +1,500 @@
+# Developing Couchmark
+
+This guide is for anyone changing the code. No prior Roku experience is assumed.
+
+## Setup
+
+1. Put your Roku in **developer mode** (see [INSTALL.md](INSTALL.md#step-1-turn-on-developer-mode-one-time)) and note its IP and password.
+2. Install [VS Code](https://code.visualstudio.com/) and the **BrightScript Language** extension (`RokuCommunity.brightscript`). VS Code suggests it when you open this folder.
+3. Copy `.env.example` to `.env` and fill in `ROKU_HOST` and `ROKU_PASSWORD`. `.env` is git-ignored; never commit credentials.
+4. Press **F5** (launch config *"Couchmark: deploy & debug on Roku"*). The extension zips the app, sideloads it, and attaches the debugger. `print` output appears in the Debug Console.
+5. Or, without the debugger: `npm run deploy` (`tools/deploy.js`) installs the current code from a terminal.
+
+> **Never delete the dev channel to install** (roku-deploy's `deleteInstalledChannel`, the extension's `deleteDevChannelBeforeInstall`, or **Delete** on the Roku's web page). Deleting it also erases its registry: all saved watch progress and settings. Both deploy paths install over the existing app, which keeps them.
+
+### Which commit is on the TV?
+
+Development builds show an amber line at the top of the home screen, and under **Settings → About**:
+
+```
+DEV  9ad7f63  Player: exact 30 s skips …  (+ uncommitted changes)  ·  dev  ·  built 2026-10-12 11:42
+```
+
+How it works:
+
+- Before every F5 launch, VS Code runs the task *couchmark: build info* (`.vscode/tasks.json`, the `preLaunchTask` in `launch.json`).
+- That task runs `tools/build-info.js`, which writes `build-info.json` (git-ignored) with the commit, message, branch, an uncommitted-changes flag and the time.
+- The launch config's `files` list includes that file. `bsconfig.json` doesn't, so `npm run package` and GitHub releases never contain it.
+- At startup, `ReadBuildInfo()` (`lib/BuildInfo.brs`) reads `pkg:/build-info.json`. A missing file means a release build, and nothing is shown.
+
+### Linting and tests
+
+The extension lints as you type using `bsconfig.json`. From a terminal (requires Node.js), run `npm install` once, then:
+
+```sh
+npm run lint     # brighterscript: syntax, unknown functions, reserved words
+npm test         # unit tests, run on your computer (no Roku needed)
+npm run check    # both
+```
+
+Run `npm run check` before every commit. Build output goes to `out/`, which is git-ignored. See [Testing](#testing) for how the tests work.
+
+### Placeholder artwork
+
+`tools/make-placeholder-images.ps1` regenerates the icons, splash screens and spinner in `images/`. To use real artwork, replace the PNGs and keep the same pixel sizes:
+
+| File | Size |
+|---|---|
+| `icon_focus_fhd.png` | 540 × 405 |
+| `icon_focus_hd.png` | 290 × 218 |
+| `icon_focus_sd.png` | 246 × 140 |
+| `splash_fhd.png` / `_hd` / `_sd` | 1920×1080 / 1280×720 / 720×480 |
+| `spinner.png` | 96 × 96, transparent |
+
+## BrightScript and SceneGraph in five minutes
+
+- **`source/main.brs`** runs first, on the *main thread*. It creates the screen and the root component, then waits for events. It contains no UI logic.
+- **Components** (`components/*.xml` and `.brs`) are UI nodes, like HTML elements with a script attached. The XML declares the `<interface>` (public fields) and `<children>` (child nodes). The `.brs` file has `init()` and event handlers. Components run on the *render thread*.
+- **`m`** is the component's private state. **`m.top`** is the component node itself (its interface fields). **`m.global`** is a node shared by every component.
+- **Observers:** `node.ObserveField("field", "handlerName")` calls the handler when the field changes. Most communication between components uses observers.
+- **Task nodes** run a function on a background thread. Anything slow, such as reading the USB drive or parsing files, must be in a Task, or the UI freezes and Roku may kill the app. You start a task with `task.control = "run"` and observe its output field.
+- **Focus:** only the focused node receives remote keys. Unhandled keys go to `onKeyEvent()` in each parent in turn, up to the scene.
+- **Script includes:** a component can only call functions from scripts it lists in `<script uri="…"/>`. Shared helpers live in `components/lib/` and are included where needed.
+
+Official references: [SceneGraph](https://developer.roku.com/docs/developer-program/core-concepts/core-concepts.md) · [BrightScript language](https://developer.roku.com/docs/references/brightscript/language/brightscript-language-reference.md) · [Node reference](https://developer.roku.com/docs/references/scenegraph/node.md)
+
+## Project layout
+
+```
+manifest                  App name, version, icons, resolution (fhd)
+source/main.brs           Entry point + USB plug/unplug events
+components/
+  MainScene.xml/.brs      Root scene: screen stack, USB scanning, Back key, debug log collector
+  screens/                Full-screen pages (all extend BaseScreen)
+    BaseScreen.xml        Declares the "navigate" field
+    HomeScreen            Netflix-style home: hero + rows (Continue Watching, Shows, Movies, Browse)
+    MovieScreen           A movie's page: Resume / Play from beginning
+    ShowScreen            A show's page: Continue button, seasons | episodes
+    FolderListScreen      A–Z lists of all movies or shows; the Other folder browser; the Files browser
+    SlideshowScreen       Dated photo/video slideshow with preloading and transitions
+    SettingsScreen        Photo duration, transition, speed, debug logs, clear history, version
+    ResumeDialog          "Resume from … / Start over" (episodes)
+    PlayMovie.brs         Play/Pause on a movie tile/row: scan its parts, start the player (Home, FolderList)
+    PlayerScreen          Video playback with custom controls; saves progress
+    MessageScreen         Title + explanation (errors, help, placeholders)
+  tasks/                  Background work (Task nodes)
+    UsbScanTask           Finds ext*: volumes and their Movies/Shows/Other folders
+    HomeScanTask          Home rows: library + artwork, Continue Watching tiles
+    FolderScanTask        Lists subfolders, video files (+ a movie's artwork), or everything (Files)
+    ShowScanTask          Reads one show's seasons + episodes (+ artwork)
+    MediaDateTask         Lists a folder's photos/videos and sorts them by date taken
+    LogTask               Runs all session: the only writer of the debug log file
+  widgets/                Reusable pieces
+    MediaTile             16:9 tile with artwork, progress bar, ✓ (RowList item)
+    ListItem              List row with title, detail text, badge (MarkupList item)
+    LoadingOverlay        Dimmed background + spinner while a Task runs
+    Toast                 Short confirmation message ("Marked as watched")
+    UpNextOverlay         "Up next" card (display only; PlayerScreen drives it)
+  lib/                    Plain BrightScript helpers included via <script>
+    Scan.brs              Reading folders: ScanFolders, ScanVideos, ScanShow, ScanFiles, FindArtwork (Tasks only)
+    Library.brs           Movie/show helpers: player items, badges, "Continue" target
+    ShowNav.brs           Show page focus: which area a key moves to, where the episode cursor lands
+    ListRowStyle.brs      ListItem looks: classic bar, or the show page's cursor / selected-season styles
+    Progress.brs          Registry storage of playback progress + pruning
+    Settings.brs          User settings: storage, choices, labels, next/previous value
+    Log.brs               Debug log: LogInfo/LogWarn/LogError, line format, daily file, rotation, size cap
+    ScanReport.brs        Log text about raw folder listings vs. what a scan kept
+    Transitions.brs       What each transition does (start/end values per slot)
+    MediaDate.brs         Date taken: EXIF, MP4/MOV mvhd (partial reads), file mtime; EXIF orientation
+    NaturalSort.brs       Natural sort keys, S01E02 / 1x02 detection
+    MediaTypes.brs        Supported extensions, junk-file filter, stream formats
+    Format.brs            Time formatting (1:02:14, "23 min", home clock)
+    BuildInfo.brs         Development builds: read and format build-info.json
+    Text.brs              Shared user-facing strings
+images/                   Icons, splash screens, player icons, fade, ✓ badge
+tests/                    Unit tests run off-device with brs (not packaged), see Testing
+tools/                    Dev scripts (not packaged): deploy, release files, version check, build info, placeholder images
+.github/workflows/        CI (lint + tests + release files on every push/PR) and Release (on v* tags)
+docs/                     Documentation (not packaged): INSTALL, USB-SETUP, USER-GUIDE (for users), DEVELOPMENT (this file)
+```
+
+Only `manifest`, `source/`, `components/` and `images/` are packaged. This is set in both `.vscode/launch.json` and `bsconfig.json`; keep the two lists in sync.
+
+## Architecture
+
+### Navigation (screen stack)
+
+`MainScene` keeps an array of open screens. Screens never create each other directly. Instead, a screen asks MainScene to do it:
+
+```brightscript
+m.top.navigate = { screen: "MessageScreen", fields: { title: "Hello", message: "…" } }
+m.top.navigate = { screen: "PlayerScreen", fields: {...}, replace: true }  ' close me first
+m.top.navigate = { action: "back" }     ' close me
+m.top.navigate = { action: "rescan" }   ' rescan USB drives
+```
+
+MainScene creates the node, applies `fields` with `SetFields`, hides the previous screen, and focuses the new one. `replace` is used by ResumeDialog so Back from the player returns to the show page, not the dialog. **Back** pops the top screen. On the home screen, Back is left unhandled so Roku exits the app.
+
+Fields are applied *after* a component's `init()`, so screens start their work (scans, playback) the first time they receive focus. When a screen receives focus, it passes focus on to its list, grid or button. Screens that show progress also watch their own `visible` field and refresh when they reappear after the player closes.
+
+### USB library
+
+`UsbScanTask` lists the volumes from `roFileSystem.GetVolumeList()`, keeps those starting with `ext` (USB drives), and looks for `Movies`, `Shows` and `Other` folders (case-insensitive) at each root. The result is stored in `m.global.library`:
+
+```brightscript
+{
+    volumes: ["ext1:", "ext2:"],
+    roots: {
+        movies: ["ext1:/Movies", "ext2:/Movies"],   ' merged across drives
+        shows:  ["ext1:/Shows"],
+        other:  []
+    }
+}
+```
+
+`main.brs` forwards `roFileSystemEvent`s (drive plugged in or removed) to `MainScene.volumesChanged`. MainScene waits 1.5 s for the drive to mount, rescans, and returns to the home screen.
+
+### Folder scanning and sorting
+
+All drive access lives in `lib/Scan.brs` and runs inside Task nodes:
+
+- `ScanFolders(paths)`: subfolders, merged by name across drives (`paths` keeps every location).
+- `ScanVideos(paths, episodeAware)`: playable video files.
+- `ScanShow(paths)`: seasons and episodes, flattened into one list of player items plus each season's slice of it (`first`, `count`). Videos directly in the show folder become a season called "Episodes".
+- `ScanFiles(paths)`: everything in the folder, for the Files browser (see below).
+- Drive access goes through two seams, `listDirectory()` and `isDirectory()`, so tests can swap in a fake folder tree.
+- `FindArtwork(paths)`: the first `fanart|landscape|backdrop|poster|folder|cover|thumb` `.jpg/.jpeg/.png` found in the folder.
+
+Junk files (`.*`, `$*`, `Thumbs.db`, …) and unsupported extensions are skipped. Sorting uses `NaturalSortKey()`, which zero-pads every run of digits so a plain alphabetical sort gives "2" before "10". With `episodeAware`, names containing `S01E02` or `1x02` sort by season and episode first.
+
+### Home screen
+
+`HomeScreen` uses a `RowList` of `MediaTile`s and two `HomeScanTask` runs:
+
+1. **`library`** (once): every show and movie folder with its artwork.
+2. **`continue`** (every time the home screen reappears): `ProgressListRecent()` returns the saved records, newest first. For each one, the task finds the title's folder again, scans it, and builds a tile with **ready-made PlayerScreen fields**. That's why one OK press starts playback with no further scanning. Movies are included if they have a resume point. Shows are included if `ContinueTarget()` finds something to watch. The row holds at most 12 tiles.
+
+Each tile's `action` field says what OK does (`play`, `show`, `movie` or `browse`). The hero area at the top shows the focused tile's title, subtitle and artwork, faded into the background with `images/fade.png`. When rows are rebuilt, the focus is restored by row key and column.
+
+The clock at the top right is `updateClock()`: it reads `roDateTime` (`ToLocalTime()`, so the Roku's time zone; the Roku syncs its clock over the internet), and formats it in 24-hour format with `FormatClock()` in `lib/Format.brs` (unit-tested). A 1-second repeating `clockTimer` refreshes it while the home screen is visible and stops when another screen covers it; the label is only rewritten when the text changes.
+
+### Movie and show pages
+
+**MovieScreen** lists the movie's parts and offers *Resume* + *Play from beginning*, or just *Play*.
+
+**ShowScreen** has three focus areas: the Continue button, the season list (left) and the episode list (right). Lists don't handle a key they can't use (for example Up on the first row), so the key reaches `ShowScreen.onKeyEvent`, which asks `ShowNextArea(area, key, continueVisible)` in `lib/ShowNav.brs` (unit-tested) where to go.
+
+Seasons work like a menu, not a live preview. Moving the cursor over a season changes nothing else. **OK** or **Right** on a season *opens* it (`openSeason()`): the episode list is refilled and focus moves to it. **Left** from the episodes always puts the cursor back on the open season (`jumpToItem = m.seasonIndex`). `SeasonEntryRow()` picks the episode row the cursor lands on: your current row if you reopen the same season, else the Continue episode if it's in that season, else the first unwatched episode, else the first one.
+
+Two markers, drawn by `ListItem` from `ListRowStyle()` in `lib/ListRowStyle.brs` (unit-tested), make the state readable:
+
+| Look | Meaning | When |
+|---|---|---|
+| **Cursor**: white row, dark bold text | Where OK goes | Only on the focused row of the *focused* list, so there's one cursor on screen |
+| **Selected**: blue accent bar on the left, blue-tinted row, bold white text | The season whose episodes are shown | Always, also while the cursor is in the episodes or on Continue |
+| Both: white row that keeps its accent bar | Cursor on the open season | |
+
+The rows opt in to this "strong" look with extra ContentNode fields: `strongCursor: true`, `selected`, and `listFocused`. `updateRowStates()` rewrites `listFocused`/`selected` on every row whenever focus moves or a season opens, and `ListItem` observes those fields. MarkupList keeps reporting `focusPercent` for its focused row even when the list doesn't have focus, which is why `listFocused` is needed. Rows without these fields (FolderListScreen, Settings) keep the classic look. The Continue button's unfocused footprint is a dark grey (`focusFootprintBlendColor`) so it doesn't look like a second cursor. ✱ on the season list acts on the season under the cursor, which may not be the open one.
+
+At 1920x1080, the season list spans x 96–516 and the episode list x 556–1824. Both show 7 rows (y 360–996) and scroll beyond that. Long titles are cut short with "…" by the Label.
+
+The Continue button text comes from `ContinueTarget()` in `Library.brs`:
+
+- The last-played episode has a resume point → **Continue S02E05 at 23:14**
+- The last-played episode was finished → **Next: S02E06**
+- It was played but stopped within 15 s → **Continue S02E06**
+- The show was never played, or the last-played episode is gone → **Start watching S01E01**, or **Next:** the first unwatched episode
+- Everything has been watched → no button
+
+OK on an episode with a resume point opens ResumeDialog. "Start over" restarts *that* episode (`restartIndex`).
+
+### The player
+
+`PlayerScreen` gets a list of **items** (`{ url, label, id }`) and a `kind`:
+
+- **movie:** the items are the movie's parts.
+- **show:** the items are *every* episode of the show in watching order, so "Up next" and the Next button carry on into the next season.
+
+The Video node's own UI is disabled (`enableUI="false"`), and the screen itself keeps focus rather than the Video node, so every key reaches `PlayerScreen.onKeyEvent`. The overlay has a title, a progress bar ("scrubber") with the elapsed time on the left and `-time left / total` on the right (`FormatRemainingOfTotal()`), and a button row that's built at runtime. Previous and Next only appear when there is more than one item. Focus is either on the bar (Left/Right seek 10 s) or on the buttons (Left/Right move). ↺ (`replay`) seeks −10 s.
+
+**Seeking keeps play/pause.** The Roku may resume a paused video when it seeks. `seekBy()` remembers whether the video was paused (`m.seekWasPaused`, once per burst of quick presses). When the burst's last seek lands, `seekLanded()` applies `SeekSettleControl(wasPaused, state)` from `lib/Library.brs` (unit-tested): `"pause"`, `"resume"` or nothing. Play/Pause during a seek cancels this, since the user has chosen (it toggles from `m.seekWasPaused`, not from `sendSeek()`'s temporary pause); so does starting a scrub, which takes over the remembered state.
+
+**◀◀/▶▶ (`rewind`/`fastforward`)** are handled on press *and* release. A press starts `holdTimer` (0.4 s):
+
+- **Release before it fires (a click):** `seekBy(±30)`. Quick clicks add up, because each seek starts from the previous target (`m.pendingSeek`, via `currentTarget()`), not from the playback position, which lags behind.
+- **It fires (a hold):** scrubbing. The video pauses, `scrubTimer` moves `m.scrubTarget` every 0.1 s by `ScrubStep(heldSeconds)` (3, 6, then 12 s per tick), clamped by `ClampSeek()`, and the bar shows the target. On release it seeks once and resumes. Any other key also ends a scrub, in case a release event is lost.
+
+**Seeking is immediate, one seek at a time.** `seekBy()` moves the bar and sends the seek at once through `sendSeek()`. If the video is playing, `sendSeek()` pauses it first, so the old position goes silent right away instead of playing on while the new one loads. The settle step below resumes it. While a seek is underway (`m.seekInFlight`), more presses only move the target (`m.queuedSeek`). `seekLanded()` sends that target when the current seek has buffered and settled, because seeking on top of a seek can leave the audio out of sync. The "paused" caused by `sendSeek()`'s own pause comes before the buffering, so it doesn't count as landing. `seekTimer` (1 s) is a safety net for a seek that never reports buffering. A new item or leaving the player forgets the seek (`resetSeek()`). Each seek writes two lines to the debug log: `seek 1234s -> 1224s (playing)` and `seek landed at 1224s after 380 ms (playing)`. `m.lastSavedAt` is moved to the target, so no progress save lands right on top of a seek.
+
+Seeking: Roku normally lands on the nearest keyframe, which can be seconds before the target. The player sets `seekMode = "accurate"` when the Video node has that field. `m.pendingSeek` is cleared as soon as playback settles (`playing`/`paused`), so the bar never keeps showing a target the picture hasn't reached. A Timer hides the controls after 3 s unless playback is paused.
+
+**Up next:** once the card appears, the item counts as finished (`m.itemCompleted`: saved as watched, or as "resume at the next part" for movies). Later saves keep it that way, even if the user stops during the credits. On every position update, `UpNextCountdown(position, duration, hasNext())` in `lib/Library.brs` (unit-tested) returns the seconds left during the last 10 s of an item that has a successor, or −1. `updateUpNext()` then shows, updates or hides the card. The card has no key handling of its own. The player keeps the remote: **OK** while the card shows calls `playNextNow()`, which saves the current item as finished and starts the next one, unless OK is meant for a highlighted button. **Play/Pause** always pauses, and seeking back hides the card. When an item finishes, the next one starts immediately. After the last item, the player closes.
+
+When the controls hide, the highlight resets to the scrubber and the Play/Pause button (`m.playPauseButton`), so a stale highlight on Next can't be pressed by accident. Every key is logged (`[Player] key …`) to help diagnose remote-control problems. Playback errors (usually an unsupported codec) replace the player with a MessageScreen that shows the Video node's `errorMsg`.
+
+Progress is saved every 10 s, on Back, and before Previous/Next. The rules differ slightly by kind:
+
+| | Movie | Episode |
+|---|---|---|
+| Past 90% (or finished) | last part: watched ✓, resume point cleared; earlier part: resume at the next part | watched ✓, resume point cleared |
+| 15 s or more, under 90% | resume point saved (part + position) | resume point saved, becomes "last played" |
+| Under 15 s | nothing saved (an old resume point on part 1 is cleared) | becomes "last played", no resume point |
+
+### Files browser
+
+**Browse → Files** opens FolderListScreen with `kind: "files"` on `m.global.library.volumes` (`["ext1:", …]`). It's the fallback for when the Shows/Movies classification doesn't see something: it lists folders as the drive has them.
+
+- FolderScanTask in `"files"` mode calls `ScanFiles(paths)` (`lib/Scan.brs`): subfolders first (merged across drives, like `ScanFolders`), then every non-junk file naturally sorted, each with `kind` = `folder | video | photo | ""` (unsupported).
+- The task also works out where the folder's progress belongs with `FileContext(folder, roots, title)` (`lib/Library.brs`): a show's folder or season folder → `kind: "show"` with the show title and the season prefix used in episode ids; a movie's folder → `kind: "movie"`; anything else → `kind: "file"`. `FilePlayerItems(videos, context)` then builds ready-made player items: episode items with the **same ids as ScanShow** (shared helper `episodeItem()`), movie parts, or plain items. They're returned on the content node (`playerKind`, `playerTitle`, `playerItems`); each row has `videoIndex` into `playerItems`.
+- OK on a video opens ResumeDialog when there's a resume point (`ProgressFindPartial` for shows; for movies, only when the saved part and part count match), otherwise the player. Play/Pause skips the dialog. Video rows in a show folder get episode badges.
+- PlayerScreen with `kind: "file"` saves nothing.
+
+### Other folders and slideshows
+
+**Browsing:** FolderListScreen with `kind: "other"` runs FolderScanTask in `"browse"` mode. That returns the subfolders, plus counts of the photos, videos and unsupported files directly in the folder (`ScanMedia()`). If there are any photos or videos, a **Play slideshow** row is inserted first. Other rows open the subfolder in another FolderListScreen.
+
+**Dates (`MediaDateTask` + `lib/MediaDate.brs`):**
+
+- **JPEG:** `roImageMetadata.GetMetadata().datetime` (EXIF date taken). EXIF tag 274 (orientation) gives the rotation.
+- **MP4/MOV/M4V:** walk the top-level boxes by reading only each 8–16-byte header with `roByteArray.ReadFile(path, offset, length)` and jumping over the rest, so a large `mdat` is never read. Inside `moov`, read `mvhd`: creation time is seconds since 1904 (UTC), 32-bit in version 0 and 64-bit in version 1. The arithmetic uses `LongInteger` (`&`) because the values exceed 32 bits and Doubles can round when converted back. Offsets past ~2 GB can't be passed to `ReadFile`, so those files fall back to the modified time.
+- **Otherwise:** `roFileSystem.Stat(path).mtime`.
+- EXIF dates are local time, while MP4 and file times are UTC. The UTC ones are shifted by the TV's time-zone offset so photos and videos interleave correctly.
+
+Items are sorted by a zero-padded date key, with the natural name order as tie-breaker (burst photos).
+
+**Playback (`SlideshowScreen`):** there are two *slots*. Each is a Group (for transitions to animate) holding a Poster (rotated for EXIF orientation). The visible slot is `m.front`. While it shows, `preloadNext()` loads the next photo into the hidden slot. `showItem()` reveals the hidden slot as soon as its `loadStatus` is `ready`, so there's never a black frame. Sideways photos use a 1080×1920 poster turned a quarter-turn around its centre, so after rotation they fill the screen height. Posters decode at screen size (`loadWidth`/`loadHeight`), not camera resolution.
+
+- **Timing:** each photo stays up for `SettingsGet().photoSeconds` (Timer). Pausing remembers the remaining time (`roTimespan`).
+- **Videos:** play in a Video node above the slots, and `finished` moves on.
+- **Failures:** files that fail to load or play are skipped. If every file fails, a message is shown.
+- **Looping:** after the last item, the slideshow starts over at the first.
+
+### Transitions
+
+Each slot is three nodes: **slot** (a Group clipped to the screen with `clippingRect`; moved, scaled and faded) → **inner** (a Group) → **poster**. `TransitionPlan(name, seconds, randomPick)` in `lib/Transitions.brs` returns `[start, end]` values for both slots' opacity, translation, scale and inner translation. It's pure data, so it's unit-tested.
+
+| Effect | Incoming photo | Outgoing photo |
+|---|---|---|
+| fade | opacity 0 → 1 (on top) | stays |
+| slide | from x = 1920 → 0 (on top) | stays |
+| push | from x = 1920 → 0 | x 0 → −1920 |
+| wipe | slot x −1920 → 0, inner x 1920 → 0: the clip window sweeps in while the picture stays still | stays |
+| zoom | scale 0.85 → 1, opacity 0 → 1 | stays |
+
+The old photo never goes away before the new one covers it, so there is no black frame between photos.
+
+`SlideshowScreen` has one `Animation` with eight interpolators (opacity, translation, scale and inner translation for slots A and B). It copies a plan into their `keyValue`s, puts the incoming slot on top, and starts the animation. Only after it ends (`endTransition`) is the old slot hidden, reset and reused to **preload** the next photo; preloading earlier would change the picture that is still sliding out. Skipping ahead mid-transition jumps to the end state first. After a video, or for the first photo, there's nothing to transition from, so the photo fades in over black.
+
+### Marking as watched / unwatched
+
+The ✱ key arrives as `"options"` in `onKeyEvent`; the lists and grids don't use it themselves. The decisions are pure functions in `lib/Library.brs` (unit-tested):
+
+- `MovieToggleAction(record)` returns `"unwatch"` for a finished movie and `"watch"` otherwise. `ProgressSetMovieWatched()` then writes a watched record, or deletes the record ("never played").
+- `ToggleEpisodesWatched(record, ids, allIds, forceWatch)`: if all the given episodes are watched, unmark them; otherwise mark them all watched. Resume points are cleared either way. `lastEp` only ever moves *forward* in show order (`allIds`), so marking an earlier season doesn't lose your place. Unmarking the last-played episode resets it, and `ContinueTarget()` then picks the first unwatched episode. `forceWatch` is used by "Continue" buttons and tiles, where ✱ always means "I've seen this".
+
+| Screen | ✱ on | Calls |
+|---|---|---|
+| HomeScreen | movie tile / Continue tile | `ProgressSetMovieWatched` / `ToggleEpisodesWatched(..., true)`, then reruns the `continue` scan to rebuild rows |
+| FolderListScreen | movie row | `ProgressSetMovieWatched`, `refreshBadges()` |
+| MovieScreen | anywhere (also a button) | `ProgressSetMovieWatched`, `refresh()` |
+| ShowScreen | Continue / season / episode | `ToggleEpisodesWatched`, `ProgressSaveShow`, `refresh()` |
+
+Each shows a `Toast`. On-screen hints use a plain `*`, since the ✱ glyph may not exist in the Roku system font.
+
+### Play/Pause on a title
+
+Like ✱, the Play/Pause key (`"play"`) isn't used by the lists, so it reaches the screen's `onKeyEvent`. It starts playback without opening a page, resuming where possible:
+
+| Screen | Play on | Does |
+|---|---|---|
+| HomeScreen | Continue tile / movie tile | `playTile()`: the tile's ready-made player fields / `PlayMovie()` |
+| FolderListScreen | movie row | `PlayMovie()` |
+| FolderListScreen (Files) | video row | the folder's `playerItems` at the resume point (`fileResumePos()`) |
+| MovieScreen | any button | `MovieStartPoint()`, then the player |
+| ShowScreen | Continue / episode | same as OK / the episode at its resume point (`ProgressFindPartial`), skipping ResumeDialog |
+
+Home and the A–Z list only know a movie's folder, so `PlayMovie()` (in `screens/PlayMovie.brs`, included by both screens) runs FolderScanTask in `"videos"` mode behind the loading overlay, then navigates to the player. `MovieStartPoint(record, partCount)` in `lib/Library.brs` (unit-tested) returns the resume point `{ index, pos }`, or the start if there is none or that part no longer exists.
+
+### Settings screen
+
+Rows are ListItems with a `key` field. Left/Right (unused by the vertical list, so they reach `SettingsScreen.onKeyEvent`) call `NextSettingValue()` and save immediately with `SettingsSave()`. The slideshow reads settings when it starts. *Clear watch history* needs OK twice, and moving to another row cancels. It calls `ProgressClearAll()`, and the home screen's Continue Watching row updates when you return.
+
+### Debug log
+
+Any component or Task calls `LogInfo(tag, message)`, `LogWarn` or `LogError` (`lib/Log.brs`). Each call `print`s the line, as before, and also saves it to `<drive>/Couchmark/logs/couchmark-YYYY-MM-DD.log`:
+
+```
+2026-10-24 21:05:03.042 INFO  [ShowScanTask] 3 seasons, 30 episodes in ["ext1:/Shows/X"]
+```
+
+**Threads.** Every Task has its own thread and its own `m`, and the render thread has another. If each thread wrote the file itself, two threads rewriting it at the same moment would lose each other's lines (Roku has no "append": a write replaces the whole file). So exactly one thread writes:
+
+```
+LogInfo() on any thread
+  └─ sets m.global.logLine           (string field, alwaysNotify)
+       └─ MainScene.onLogLine        (render thread: collects the line)
+            └─ logTask.lines = [...] (LogTask's field; it observes with a message port)
+                 └─ LogTask.writeLoop: batches lines, writes the file
+```
+
+- Setting a field on `m.global` from a Task is a normal, thread-safe SceneGraph field set. MainScene handles each one in its observer, so lines arrive in order and none are dropped.
+- **Startup:** a Task only starts listening once its thread runs. Until LogTask sets `ready`, MainScene keeps lines in `m.logBacklog` and then sends them all, so the app-start lines aren't lost.
+- `main.brs` has no `m.global`. For drive plug/unplug it sets `MainScene.usbEvent` (e.g. `drive added: ext1:`), and MainScene logs it.
+- An alternative would be to have each thread append to its own file, but then the user would have to merge several files by timestamp. A single writer keeps one readable file per day.
+
+**Writing the file (`LogStoreAppend`, LogTask thread only).**
+
+- **Batching:** LogTask writes at most once per second (`LogFlushMs()`), or at once if a batch contains an `ERROR` line, because the app may be about to crash.
+- **No append API:** the open day's text is kept in memory (`store.text`), the new lines are added, and the whole file is rewritten with `WriteAsciiFile`. Opening a file reads what's already there with `ReadAsciiFile`, so a second launch on the same day continues the file.
+- **Size cap:** `LogCapText()` keeps each file under `LogMaxChars()` (256 KB). When the cap is passed, whole lines are dropped from the start down to 3/4 of the cap, so trimming doesn't happen on every write.
+- **Rotation:** when a file is opened (first write, new day, other folder), `LogFilesToDelete()` keeps today's file plus the newest 6 others (`LogKeepDays()` = 7). Only files named `couchmark-YYYY-MM-DD.log` are ever deleted.
+- **Where:** `LogDirCandidates()` lists `extN:/Couchmark/logs` for each USB drive in order, then `tmp:/couchmark-logs`. The first folder that can be created *and* written wins. A folder that fails is skipped until the volume list changes (`store.failed`), so a read-only drive isn't retried every second. If a write fails (drive removed), the next folder is tried at once.
+- **Fallback:** lines written to `tmp:` are also kept in `store.carry`. When a drive becomes writable (it mounted late, or was plugged back in), they're added to the drive's file, so a session's log ends up in one place.
+- **Failures never crash:** every file call returns a status, and if nothing at all can be written the batch is simply dropped. LogTask's thread does the disk work, so the UI never waits for the drive.
+- **Off switch:** Settings → *Save debug logs to USB* (`saveLogs`, registry key `log`) sets `logTask.enabled`. When it's off, lines are still printed but not saved. `logTask.target` holds the folder in use, which the Settings hint shows.
+
+**What is logged:** app start (version, build info, model, OS version, display mode); `UsbScanTask` (every volume, each drive's top-level names, the roots found); `HomeScanTask` (counts, raw listing counts per root, Continue Watching titles whose folder is gone); `FolderScanTask` (entries kept and raw listing counts); `ShowScanTask` (for the show folder and each season folder: files listed, videos kept, names of skipped files, from `ListingReport()` in `lib/ScanReport.brs`); `MediaDateTask` (item count); the player (each item started, every state change, and on `error` the url, `errorMsg`, `errorCode`, plus `errorStr`/`errorInfo` where the OS has them, via `PlayerErrorText()`); slideshow skips and video errors; drive plug/unplug; the settings toggle. Remote key presses in the player are only `print`ed, since they would flood the file. `Progress.brs` still uses `print` because it is included in many places, including tests, that don't include `Log.brs`.
+
+Adding a log call: include `pkg:/components/lib/Log.brs` in the component's XML, then call `LogInfo("MyTag", "text " + count.ToStr())`. Messages are plain strings, so convert numbers with `.ToStr()` and arrays with `FormatJson()`.
+
+### Registry schema
+
+Roku gives each app about 16 KB of persistent registry storage. The code for this lives in `components/lib/Progress.brs`.
+
+| Section | Key | Value | Status |
+|---|---|---|---|
+| `progress` | `m` + 8 hex chars of MD5(lower-case movie folder name) | `lastUsed\|part\|parts\|pos\|dur\|watched\|title` | ✅ |
+| `progress` | `s` + 8 hex chars of MD5(lower-case show folder name) | `lastUsed\|lastEp\|watched\|partials\|title` | ✅ |
+| `settings` | `dur`, `tr`, `spd`, `log` | photo seconds, transition name, speed name, debug log `on`/`off` | ✅ |
+
+The `title` (folder name) lets the home screen build Continue Watching from the registry alone. It's the last field, so a title containing `|` still parses. Records saved before titles were added have no title. They still work, but they don't appear in Continue Watching until the title is played again.
+
+Movie example: `1760270000|0|1|3734|7200|0|The Matrix` means part 1 of 1, resume at 1:02:14, part length 2:00:00, not yet watched. `part` is 0-based, and `lastUsed` is in seconds since 1970.
+
+Show example: `1760270000|0b12ef|77ac10,0b12ef|c4d2e1:612:2580|The Office`. Here the last episode played is `0b12ef`, two episodes are watched, and `c4d2e1` has a resume point at 10:12 of 43:00. At most 10 resume points are kept per show, most recent first.
+
+An episode id is 6 hex characters of MD5 of the episode's path relative to the show folder (`Season 2/S02E05.mkv`, lower-cased), so adding or renaming *other* files doesn't affect it. When the total size passes about 13 KB, the entries with the oldest `lastUsed` are pruned first.
+
+## Testing
+
+### What is tested, and how
+
+Logic lives in **`components/lib/`** as plain functions. Screens and tasks stay thin: they gather input, call those functions, and show the result. The functions can therefore be tested on a computer with [`brs`](https://github.com/sjbarag/brs), an off-device BrightScript interpreter. Covered so far:
+
+| Test file | What it checks |
+|---|---|
+| `Scan.test.brs` | `ScanShow` on a real 24-episode season, loose episodes, seasons merged across drives, junk files; `ScanFiles` ordering and merging; `FilePlayerItems` |
+| `NaturalSort.test.brs` | "2" before "10", case, `S01E02` / `1x02` codes |
+| `MediaTypes.test.brs` | supported/junk files, extensions, episode-name cleanup |
+| `Format.test.brs` | `1:02:14`, "23 min", "-29:55 / 44:00", "Wed, Nov 25  ·  19:05" |
+| `BuildInfo.test.brs` | the DEV line, uncommitted-changes flag, nothing shown for release builds |
+| `Progress.test.brs` | registry encoding round trips, titles with `\|`, resume-point limit, newest-first list, pruning to the size budget |
+| `Library.test.brs` | `ContinueTarget` cases, badges, movie parts and resume text, mark watched/unwatched (movies, episodes, seasons, "continue" never moves backwards), Up next countdown, seek clamping and scrub speeds, `FileContext` |
+| `MediaDate.test.brs` | MP4/MOV `mvhd` dates on real files (`tests/fixtures/`), fallback to the file date |
+| `Transitions.test.brs` | every effect's start/end values, wipe keeps the picture still, random never picks none |
+| `Settings.test.brs` | defaults, save/load, damaged values, next/previous with wrap-around, labels, debug log on/off |
+| `Log.test.brs` | line and time format, file names, which old days to delete, size cap at line boundaries, folder order, player error text, writing: drive, read-only drive → next drive / tmp:, late-mounted or re-plugged drive gets the tmp: lines, new day, rotation |
+| `ScanReport.test.brs` | listed vs. kept counts, skipped file names, listing counts per folder |
+| `ShowNav.test.brs` | show page keys between Continue / seasons / episodes, season of an episode, where the episode cursor lands when a season opens |
+| `ListRowStyle.test.brs` | classic row look unchanged; show page: one cursor only in the focused list, selected season distinct from the cursor and kept while the cursor is elsewhere |
+
+Screens (focus, layout, playback) need a real Roku and are tested by hand. If you change a screen, also try it on a TV.
+
+### Writing a test
+
+A test file is `tests/<Name>.test.brs`, with a `Main()` that calls the assertions from `tests/lib/Assert.brs` and ends with `finishTests()`:
+
+```brightscript
+' @include components/lib/Format.brs
+sub Main()
+    assertEqual(FormatTime(845), "14:05", "minutes")
+    finishTests()
+end sub
+```
+
+Directives at the top tell `tests/run.js` what to load:
+
+- `' @include path`: app code under test.
+- `' @double path`: a *test double*. Functions it defines replace the same-named functions in the included code, but only in the test build; app code doesn't change. Doubles exist for the things that need a Roku:
+  - `tests/doubles/Registry.brs`: in-memory registry sections (`progressSection()`, `settingsSection()`), a stand-in for MD5, and a fake clock.
+  - `tests/doubles/Files.brs`: file reads from fixtures, a fixed file date, UTC offset 0.
+  - `tests/doubles/LogFiles.brs`: a fake file system for `lib/Log.brs` (volumes, read-only volumes, files), a fixed clock, and `logSend()` collecting lines.
+  - `tests/doubles/Listing.brs`: folder listings for `lib/ScanReport.brs`.
+  - `tests/doubles/Folders.brs`: a fake folder tree for `lib/Scan.brs` (`setTree({ path: [names] })` replaces `listDirectory()` / `isDirectory()`).
+- `' @fixture path`: a file whose bytes become available to the Files double (call `loadFixtures()` first).
+
+Run one file with `npm test -- Progress`.
+
+A test file fails if any check fails, if it never reaches `finishTests()`, or if `brs` prints a runtime error such as `File.brs(80,4-10): Attempting to return …`. `brs` sometimes reports those and carries on, so the runner scans the output for them.
+
+`tests/bsconfig.json` makes the editor treat `tests/` as its own project. Otherwise it would flag every call into app code as unknown, because those files are only combined by `tests/run.js`.
+
+### Keeping code testable
+
+- Put decisions (what to show, what to save, how to sort or parse) in `components/lib/` functions that take values and return values.
+- Touch the device (registry, files, `roDateTime` "now") only through small functions such as `progressSection()`, `settingsSection()`, `md5Hex()`, `nowSeconds()`, `readBytes()`, `fileSizeOf()` and `FileModifiedTime()`. Then a double can replace them.
+- A bug fix should come with a test that fails without the fix. Example: `MediaTypes.test.brs` covers the dotted episode names that once showed as "…".
+
+### `brs` quirks
+
+`brs` is not a Roku, so a few things differ. Avoid them in tests, or keep the code neutral:
+
+- No `roRegistrySection`, `roEVPDigest`/`roByteArray.FromAsciiString` or `roByteArray.ReadFile`. That's why the doubles exist.
+- Integer literals of 10+ digits are read as Doubles. Keep test numbers small, or compare values computed by the code.
+- `Int()` of a large Double loses precision. The app uses `LongInteger` (`&`) for MP4 times, which is exact on both.
+- `Right(s, n)` with `n = Len(s)` returns the wrong result.
+- `SortBy` doesn't sort when the sort field is a mixed-case key written in a literal (`{ sortKey: … }`). The app sorts flat items by lower-case field names.
+- Keys set with dot notation (`aa.photoSeconds = 5`) are stored in lower case. That happens on a Roku too; lookups ignore case. Compare fields one by one rather than whole objects built that way.
+- `brs` scans its root folder for component `.xml` files and crashes on one without a `name` (`Cannot read properties of undefined (reading 'toLowerCase')`). From the repo root on Linux its pattern matches every `.xml`, `node_modules` included; on Windows it matches nothing. `tests/run.js` therefore runs `brs` from each test's own `out/tests/<name>/` folder (`--root` and `cwd`).
+
+On-device unit tests with [Rooibos](https://github.com/georgejecook/rooibos) would be the next step for testing SceneGraph components themselves.
+
+## Continuous integration and releases
+
+**CI** (`.github/workflows/ci.yml`) runs on every push to `main`/`dev` and on every pull request:
+
+- `npm ci`, then `npm run check` (lint + unit tests).
+- The version check (`npm run app-version`).
+- `npm run dist`, which builds exactly the files a release publishes (see below). They're attached to the run as an artifact (`couchmark-<commit>`), so anyone can sideload a pull request's build.
+
+**The release files** (`npm run dist` = `npm run package`, then `tools/release-assets.js`) go in `out/release/`:
+
+| File | What it is |
+|---|---|
+| `couchmark-vX.Y.Z.zip` | The app. A Roku "sideload" zip: `manifest`, `source/`, `components/`, `images/` at the top level, uploaded on the Roku's developer web page. |
+| `couchmark-usb-starter.zip` | Empty `Movies`, `Shows` and `Other` folders plus a short text guide, to unzip onto a USB drive. Built with fixed dates, so its checksum only changes when its content does. |
+| `SHA256SUMS.txt` | Checksums of both zips. |
+| `NOTES.md` | Install steps, used as the top of the GitHub release notes. |
+
+Before writing anything, `release-assets.js` opens the app zip and fails the build if `manifest` isn't at the top, its version differs from `tools/version.js`, or a dev-only file (`build-info.json`, `tests/`, `tools/`, `docs/`, `.env`) got in.
+
+**Why a sideload zip and not a signed `.pkg`:** a zip installed in developer mode is the only way to install an app that isn't in the Roku Channel Store. A signed `.pkg` is only needed to submit to the Channel Store or publish a beta channel through the Roku developer dashboard. Signing is done *on a Roku* with that developer's key (`genkey`, then the installer page's **Packager**), so it can't run on GitHub's servers. If Couchmark is ever published in the store, that becomes a manual step on a TV; the zip built here is what gets signed.
+
+**Releasing a version:**
+
+1. Update the version in **both** `manifest` (`major_version`, `minor_version`, `build_version`) and `package.json` (`"version"`), e.g. 0.3.0. Run `npm install` so `package-lock.json` follows.
+2. Update the README and the guides in `docs/` if features changed, run `npm run check` and `npm run dist`, and commit.
+3. Tag and push the tag:
+   ```sh
+   git tag v0.3.0
+   git push origin v0.3.0
+   ```
+4. `.github/workflows/release.yml` checks that the tag matches the manifest version (`tools/version.js`), runs the checks, runs `npm run dist`, and creates a GitHub Release with `couchmark-v0.3.0.zip`, `couchmark-usb-starter.zip` and `SHA256SUMS.txt` attached. The notes start with `NOTES.md` (install steps, linking the guides at that tag), followed by GitHub's auto-generated list of changes.
+
+If the tag and version don't match, the release fails before anything is published. Delete the tag, fix the version, and tag again.
+
+## Debugging tips
+
+- `print` statements and `LogInfo`/`LogWarn`/`LogError` lines appear in the VS Code Debug Console, or via `telnet <roku-ip> 8085`.
+- Without a computer attached, read the drive's `Couchmark/logs/couchmark-YYYY-MM-DD.log` (see [Debug log](#debug-log)).
+- A crash drops into the BrightScript debugger, which shows the file and line. Type `bt` for a backtrace and `var` for local variables.
+- The dev web page at `http://<roku-ip>` has a **Utilities → Screenshot** button.
+- To test without a drive, unplug it: the "No USB drive found" screen should appear, and plugging the drive back in should reach the home screen within a few seconds.
+
+## Conventions
+
+- Every `.brs` file starts with a header comment that explains its job. Comments explain *why*, not what.
+- UI is laid out for 1920×1080 (`ui_resolutions=fhd`).
+- Colours: background `#101418`, card `#1E252D`, focus `#2A3440`, accent `#3D7EFF`, secondary text `#8A96A3`.
+- Treat the USB drive as read-only. Never write, rename or delete files on it, with one exception: LogTask writes and rotates its own `couchmark-*.log` files in `Couchmark/logs`.
+- Use `LogInfo`/`LogWarn`/`LogError` rather than `print` for anything that would help explain a problem later.

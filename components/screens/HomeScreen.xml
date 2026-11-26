@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    HomeScreen — Netflix-style home.
+
+    Top: a "hero" area describing the focused tile (title, subtitle, art).
+    Below: rows that scroll sideways:
+      Continue Watching – one click resumes (hidden when empty)
+      Shows / Movies    – every title, with artwork if the folder has any
+      Browse            – A–Z lists, Other (slideshows), Settings
+-->
+<component name="HomeScreen" extends="BaseScreen">
+    <script type="text/brightscript" uri="HomeScreen.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Text.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Progress.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Format.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Library.brs" />
+    <script type="text/brightscript" uri="PlayMovie.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/BuildInfo.brs" />
+
+    <children>
+        <!-- Hero artwork, faded into the background on the left/bottom. -->
+        <Poster id="heroArt" translation="[700, 0]" width="1220" height="686" loadWidth="1220" loadHeight="686" loadDisplayMode="scaleToZoom" opacity="0.7" />
+        <Poster uri="pkg:/images/fade.png" translation="[700, 0]" width="1220" height="686" />
+
+        <!-- Development builds only: commit + message (lib/BuildInfo.brs). -->
+        <Label id="buildInfo" translation="[96, 16]" width="1728" color="0xF5B942FF">
+            <Font role="font" uri="font:SystemFontFile" size="22" />
+        </Label>
+
+        <Label id="appTitle" text="COUCHMARK" translation="[96, 56]" color="0x3D7EFFFF">
+            <Font role="font" uri="font:BoldSystemFontFile" size="30" />
+        </Label>
+        <Label id="heroTitle" translation="[96, 120]" width="1100" wrap="true" maxLines="2">
+            <Font role="font" uri="font:BoldSystemFontFile" size="72" />
+        </Label>
+        <Label id="heroSubtitle" translation="[96, 320]" width="1100" color="0xC8D0D8FF" wrap="true" maxLines="2">
+            <Font role="font" uri="font:SystemFontFile" size="34" />
+        </Label>
+
+        <RowList
+            id="rows"
+            translation="[96, 450]"
+            itemComponentName="MediaTile"
+            itemSize="[1824, 330]"
+            itemSpacing="[0, 24]"
+            numRows="2"
+            rowItemSize="[[400, 270]]"
+            rowItemSpacing="[[28, 0]]"
+            showRowLabel="[true]"
+            rowLabelOffset="[[0, 12]]"
+            rowLabelColor="0xFFFFFFFF"
+            drawFocusFeedback="false"
+            rowFocusAnimationStyle="floatingFocus"
+            vertFocusAnimationStyle="fixedFocus">
+            <Font role="rowLabelFont" uri="font:BoldSystemFontFile" size="34" />
+        </RowList>
+
+        <!-- Date and time from the Roku (internet time, the TV's time zone). -->
+        <Label id="clock" translation="[1224, 52]" width="600" horizAlign="right" color="0xFFFFFFFF">
+            <Font role="font" uri="font:SystemFontFile" size="34" />
+        </Label>
+        <Timer id="clockTimer" duration="1" repeat="true" />
+
+        <Label text="*  Mark as watched / unwatched" translation="[1224, 100]" width="600" horizAlign="right" color="0x8A96A3FF">
+            <Font role="font" uri="font:SystemFontFile" size="24" />
+        </Label>
+
+        <Toast id="toast" />
+        <LoadingOverlay id="loading" visible="false" />
+    </children>
+</component>

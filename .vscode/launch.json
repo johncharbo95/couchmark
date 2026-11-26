@@ -1,0 +1,31 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "brightscript",
+            "request": "launch",
+            "name": "Couchmark: deploy & debug on Roku",
+            // Credentials come from .env (git-ignored). See .env.example.
+            "envFile": "${workspaceFolder}/.env",
+            "host": "${env:ROKU_HOST}",
+            "password": "${env:ROKU_PASSWORD}",
+            "rootDir": "${workspaceFolder}",
+            // Records the current commit (build-info.json) before deploying.
+            "preLaunchTask": "couchmark: build info",
+            // Only these files are zipped and sideloaded to the TV.
+            // build-info.json is for development builds only (it is not in
+            // bsconfig.json, so `npm run package` / releases never include it).
+            "files": [
+                "manifest",
+                "source/**/*",
+                "components/**/*",
+                "images/**/*",
+                "build-info.json"
+            ],
+            // Install over the old app. Deleting it first would also erase its
+            // registry: all saved watch progress and settings.
+            "deleteDevChannelBeforeInstall": false,
+            "stopOnEntry": false
+        }
+    ]
+}

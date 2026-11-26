@@ -1,0 +1,9 @@
+{
+    // Two BrightScript projects: the app, and the off-device tests (whose
+    // files are combined with app code by tests/run.js, so they get their
+    // own lint settings).
+    "brightscript.projects": [
+        { "name": "app", "path": "bsconfig.json" },
+        { "name": "tests", "path": "tests/bsconfig.json" }
+    ]
+}

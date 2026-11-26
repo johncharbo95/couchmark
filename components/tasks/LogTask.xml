@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    LogTask — the only writer of the debug log file (see lib/Log.brs).
+
+    MainScene creates one at startup, keeps it in m.global.logTask, and
+    passes it batches of lines. It runs for the whole session.
+
+    Fields:
+      lines   – set by MainScene: an array of formatted lines to add
+      enabled – false: lines are dropped (Settings → "Save debug logs to USB")
+      ready   – set by the task once it listens to "lines"; MainScene keeps
+                lines until then so none are lost at startup
+      target  – the folder being written ("" while nothing could be
+                written), e.g. "ext1:/Couchmark/logs" or "tmp:/couchmark-logs"
+-->
+<component name="LogTask" extends="Task">
+    <interface>
+        <field id="lines" type="array" alwaysNotify="true" />
+        <field id="enabled" type="boolean" value="true" />
+        <field id="ready" type="boolean" value="false" />
+        <field id="target" type="string" />
+    </interface>
+    <script type="text/brightscript" uri="LogTask.brs" />
+    <script type="text/brightscript" uri="pkg:/components/lib/Log.brs" />
+</component>

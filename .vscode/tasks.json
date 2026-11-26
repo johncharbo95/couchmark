@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            // Runs before every launch (preLaunchTask in launch.json): records
+            // the current commit so the app can show it on screen.
+            "label": "couchmark: build info",
+            "type": "process",
+            "command": "node",
+            "args": ["${workspaceFolder}/tools/build-info.js"],
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        }
+    ]
+}

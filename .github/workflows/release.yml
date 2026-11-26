@@ -1,0 +1,47 @@
+# Publishes a GitHub Release when a version tag is pushed:
+#   git tag v0.2.0 && git push origin v0.2.0
+# The tag must match the version in manifest and package.json.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # needed to create the release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tag matches manifest version
+        run: node tools/version.js "$GITHUB_REF_NAME"
+
+      - name: Lint and unit tests
+        run: npm run check
+
+      # Writes out/release/: couchmark-vX.Y.Z.zip, couchmark-usb-starter.zip,
+      # SHA256SUMS.txt and NOTES.md (tools/release-assets.js).
+      - name: Build and check the release files
+        run: npm run dist
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "out/release/couchmark-$GITHUB_REF_NAME.zip" \
+            out/release/couchmark-usb-starter.zip \
+            out/release/SHA256SUMS.txt \
+            --title "Couchmark $GITHUB_REF_NAME" \
+            --notes-file out/release/NOTES.md \
+            --generate-notes

@@ -1,0 +1,265 @@
+' ============================================================================
+' Library.brs — movie and show helpers shared by screens and tasks
+' Needs: Progress.brs, Format.brs
+' ============================================================================
+
+' ----------------------------------------------------------------------------
+' Movies
+' ----------------------------------------------------------------------------
+
+' PlayerScreen items for a movie's parts (from ScanVideos):
+'   [ { url, label: "Part 2 of 3" (or "" for a single file), id: "" } ]
+function MoviePlayerItems(parts as Object) as Object
+    items = []
+    for i = 0 to parts.Count() - 1
+        label = ""
+        if parts.Count() > 1 then label = "Part " + (i + 1).ToStr() + " of " + parts.Count().ToStr()
+        items.Push({ url: parts[i].path, label: label, id: "" })
+    end for
+    return items
+end function
+
+' True when a movie record has a resume point.
+function MovieInProgress(record as Dynamic) as Boolean
+    if record = invalid then return false
+    return record.pos > 0 or record.part > 0
+end function
+
+' How far through the whole movie (0.0 – 1.0), counting finished parts.
+function MovieFraction(record as Object) as Float
+    partFraction = 0.0
+    if record.dur > 0 then partFraction = record.pos / record.dur
+    parts = record.parts
+    if parts < 1 then parts = 1
+    return (record.part + partFraction) / parts
+end function
+
+' Where Play starts a movie with partCount parts: { index, pos }. Its resume
+' point if it has one (and that part still exists), otherwise the start.
+function MovieStartPoint(record as Dynamic, partCount as Integer) as Object
+    if MovieInProgress(record) and record.part < partCount then return { index: record.part, pos: record.pos }
+    return { index: 0, pos: 0 }
+end function
+
+' What ✱ (mark watched / unwatched) does to a movie: "unwatch" when it's
+' finished (✓), otherwise "watch" (also when it's partly watched).
+function MovieToggleAction(record as Dynamic) as String
+    if record <> invalid and record.watched and not MovieInProgress(record) then return "unwatch"
+    return "watch"
+end function
+
+' Badge for a movie tile/row: { badge: "" | "watched" | "partial", progress }
+function MovieBadge(record as Dynamic) as Object
+    if MovieInProgress(record) then return { badge: "partial", progress: MovieFraction(record) }
+    if record <> invalid and record.watched then return { badge: "watched", progress: 0.0 }
+    return { badge: "", progress: 0.0 }
+end function
+
+' "Part 2 of 3 · 45 min left", "45 min left" or "Resume at 1:02:14"
+function MovieResumeText(record as Object) as String
+    text = "Resume at " + FormatTime(record.pos)
+    if record.dur > record.pos then text = FormatRemaining(record.dur - record.pos) + " left"
+    if record.parts > 1 then text = "Part " + (record.part + 1).ToStr() + " of " + record.parts.ToStr() + "  ·  " + text
+    return text
+end function
+
+' ----------------------------------------------------------------------------
+' Player
+' ----------------------------------------------------------------------------
+
+' The number on the "Up next" card ("Starting in 7 s"), or -1 when the card
+' shouldn't show. It shows during the last 10 seconds of an episode or part,
+' only if something follows, and not for clips under 30 seconds.
+function UpNextCountdown(position as Float, duration as Float, somethingFollows as Boolean) as Integer
+    if not somethingFollows or duration < 30 then return -1
+    remaining = duration - position
+    if remaining > 10 or remaining < 0 then return -1
+    seconds = Int(remaining + 0.999)   ' round up: 9.2 s left shows 10
+    if seconds < 1 then seconds = 1
+    return seconds
+end function
+
+' Keeps a seek target inside the video: not before 0, and not in the last
+' 2 seconds (seeking to the very end would just finish the video).
+function ClampSeek(target as Float, duration as Float) as Float
+    if duration > 0 and target > duration - 2 then target = duration - 2
+    if target < 0 then target = 0.0
+    return target
+end function
+
+' A seek keeps the play/pause state the video had before it: seeking while
+' paused stays paused, seeking while playing keeps playing. The Roku may
+' change that state while seeking, so once the seek settles into
+' `state` ("playing" or "paused") this returns what to tell the video:
+' "pause", "resume", or "" (already right).
+function SeekSettleControl(wasPaused as Boolean, state as String) as String
+    if wasPaused and state = "playing" then return "pause"
+    if not wasPaused and state = "paused" then return "resume"
+    return ""
+end function
+
+' Holding ◀◀ / ▶▶ scrubs faster the longer the button is held. Returns how
+' many seconds of video to move per scrub tick (one tick = 0.1 s):
+'   first 2 s held: 3 s per tick (30x)   next 2 s: 6 s (60x)   then 12 s (120x)
+function ScrubStep(heldSeconds as Float) as Integer
+    if heldSeconds < 2 then return 3
+    if heldSeconds < 4 then return 6
+    return 12
+end function
+
+' ----------------------------------------------------------------------------
+' Files browser
+' ----------------------------------------------------------------------------
+
+' Where progress for the videos in a folder belongs, so videos played from
+' the Files browser share progress with the show and movie pages:
+'   ext1:/Shows/The Office/Season 2  -> { kind: "show",  title: "The Office", prefix: "Season 2/" }
+'   ext1:/Shows/The Office           -> { kind: "show",  title: "The Office", prefix: "" }
+'   ext1:/Movies/The Matrix          -> { kind: "movie", title: "The Matrix", prefix: "" }
+'   anywhere else (deeper, Other, …) -> { kind: "file",  title: fallbackTitle, prefix: "" }
+' roots: m.global.library.roots. Folder names match case-insensitively.
+function FileContext(folder as String, roots as Object, fallbackTitle as String) as Object
+    plain = { kind: "file", title: fallbackTitle, prefix: "" }
+    for each kind in ["shows", "movies"]
+        for each root in roots[kind]
+            start = LCase(root) + "/"
+            if LCase(Left(folder, Len(start))) = start
+                parts = Mid(folder, Len(start) + 1).Split("/")
+                if kind = "movies"
+                    if parts.Count() = 1 then return { kind: "movie", title: parts[0], prefix: "" }
+                else if parts.Count() = 1
+                    return { kind: "show", title: parts[0], prefix: "" }
+                else if parts.Count() = 2
+                    return { kind: "show", title: parts[0], prefix: parts[1] + "/" }
+                end if
+                return plain
+            end if
+        end for
+    end for
+    return plain
+end function
+
+' ----------------------------------------------------------------------------
+' Shows
+' ----------------------------------------------------------------------------
+
+' Short name for an episode: "S02E05" when the file has a code, else its title.
+function EpisodeShortLabel(item as Object) as String
+    if item.code <> "" then return item.code
+    return item.label
+end function
+
+' ✱ on episodes (one episode, or every episode of a season):
+'   - if they are all watched already: mark them unwatched
+'   - otherwise: mark them all watched
+' Resume points of those episodes are cleared either way. "Continue" moves
+' forward past episodes marked watched (never backwards), and unmarking the
+' last-played episode resets it.
+' ids: the episodes to change, in watching order. allIds: every episode of
+' the show in watching order. forceWatch: always mark watched (Continue
+' Watching tile: "I've seen this"). Changes record in place (save it
+' afterwards); returns true if the episodes are now watched.
+function ToggleEpisodesWatched(record as Object, ids as Object, allIds as Object, forceWatch = false as Boolean) as Boolean
+    if ids.Count() = 0 then return false
+
+    allWatched = true
+    for each id in ids
+        if not record.watched.DoesExist(id) then allWatched = false
+    end for
+    watch = forceWatch or not allWatched
+
+    for each id in ids
+        ProgressRemovePartial(record, id)
+        if watch
+            record.watched[id] = true
+        else
+            record.watched.Delete(id)
+            if record.lastEp = id then record.lastEp = ""
+        end if
+    end for
+    if watch and indexOf(allIds, ids[ids.Count() - 1]) > indexOf(allIds, record.lastEp)
+        record.lastEp = ids[ids.Count() - 1]
+    end if
+    return watch
+end function
+
+' The ids of items[first] .. items[first + count - 1] (count -1 = to the end).
+function EpisodeIds(items as Object, first as Integer, count as Integer) as Object
+    if count < 0 then count = items.Count() - first
+    ids = []
+    for i = first to first + count - 1
+        ids.Push(items[i].id)
+    end for
+    return ids
+end function
+
+' Position of value in list, or -1.
+function indexOf(list as Object, value as String) as Integer
+    for i = 0 to list.Count() - 1
+        if list[i] = value then return i
+    end for
+    return -1
+end function
+
+' Badge for one episode: { badge: "" | "watched" | "partial", progress }.
+' A resume point wins over ✓ (you're re-watching it).
+function EpisodeBadge(record as Object, id as String) as Object
+    partial = ProgressFindPartial(record, id)
+    if partial <> invalid
+        fraction = 0.0
+        if partial.dur > 0 then fraction = partial.pos / partial.dur
+        return { badge: "partial", progress: fraction }
+    end if
+    if record.watched.DoesExist(id) then return { badge: "watched", progress: 0.0 }
+    return { badge: "", progress: 0.0 }
+end function
+
+' Where "Continue" should take you, or invalid when there's nothing to offer
+' (show finished). Returns { text, index, pos }.
+function ContinueTarget(record as Object, items as Object) as Dynamic
+    if items.Count() = 0 then return invalid
+
+    index = -1
+    if record.lastEp <> ""
+        for i = 0 to items.Count() - 1
+            if items[i].id = record.lastEp
+                index = i
+                exit for
+            end if
+        end for
+    end if
+
+    ' Never played, or the last episode is gone from the drive:
+    ' start at the first episode not yet watched.
+    if index < 0
+        for i = 0 to items.Count() - 1
+            if not record.watched.DoesExist(items[i].id)
+                verb = "Start watching "
+                if record.watched.Count() > 0 then verb = "Next: "
+                return targetAt(record, items, i, verb)
+            end if
+        end for
+        return invalid
+    end if
+
+    ' Last episode was finished: offer the one after it.
+    if record.watched.DoesExist(record.lastEp) and ProgressFindPartial(record, record.lastEp) = invalid
+        if index + 1 >= items.Count() then return invalid
+        return targetAt(record, items, index + 1, "Next: ")
+    end if
+
+    return targetAt(record, items, index, "Continue ")
+end function
+
+function targetAt(record as Object, items as Object, index as Integer, verb as String) as Object
+    item = items[index]
+    resumeAt = 0
+    text = verb + EpisodeShortLabel(item)
+
+    partial = ProgressFindPartial(record, item.id)
+    if partial <> invalid
+        resumeAt = partial.pos
+        text = "Continue " + EpisodeShortLabel(item) + " at " + FormatTime(resumeAt)
+    end if
+    return { text: text, index: index, pos: resumeAt }
+end function

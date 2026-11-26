@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Toast — a short message at the bottom of the screen ("Marked as watched")
+    that disappears after 2.5 seconds. Set  toast.message = "..."  to show it.
+-->
+<component name="Toast" extends="Group">
+    <interface>
+        <field id="message" type="string" alwaysNotify="true" onChange="onMessage" />
+    </interface>
+
+    <script type="text/brightscript" uri="Toast.brs" />
+
+    <children>
+        <Group id="box" translation="[560, 930]" visible="false">
+            <Rectangle width="800" height="80" color="0x2A3440F2" />
+            <Rectangle width="8" height="80" color="0x3D7EFFFF" />
+            <Label id="label" translation="[36, 0]" width="740" height="80" vertAlign="center" horizAlign="center">
+                <Font role="font" uri="font:SystemFontFile" size="32" />
+            </Label>
+        </Group>
+        <Timer id="timer" duration="2.5" repeat="false" />
+    </children>
+</component>
