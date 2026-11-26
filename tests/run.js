@@ -83,7 +83,13 @@ function runTest(file) {
     }
     write("Fixtures.brs", fixtureSource(fixtures));
 
-    const result = spawnSync(process.execPath, [brsCli, ...files], { encoding: "utf8" });
+    // brs scans its root folder (default: the current directory) for
+    // component XML files. From the repo root on Linux that finds every
+    // .xml, node_modules included, and brs crashes on one without a name
+    // ("reading 'toLowerCase'"). On Windows the glob happens to match
+    // nothing. Running from the test's own folder gives the same, empty
+    // result everywhere.
+    const result = spawnSync(process.execPath, [brsCli, "--root", outDir, ...files], { encoding: "utf8", cwd: outDir });
     const output = (result.stdout || "") + (result.stderr || "");
     // Assertion failures, plus interpreter errors such as
     // "Library.brs(80,4-10): Attempting to return ..." (brs may print these

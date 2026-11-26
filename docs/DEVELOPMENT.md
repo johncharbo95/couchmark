@@ -445,6 +445,7 @@ A test file fails if any check fails, if it never reaches `finishTests()`, or if
 - `Right(s, n)` with `n = Len(s)` returns the wrong result.
 - `SortBy` doesn't sort when the sort field is a mixed-case key written in a literal (`{ sortKey: … }`). The app sorts flat items by lower-case field names.
 - Keys set with dot notation (`aa.photoSeconds = 5`) are stored in lower case. That happens on a Roku too; lookups ignore case. Compare fields one by one rather than whole objects built that way.
+- `brs` scans its root folder for component `.xml` files and crashes on one without a `name` (`Cannot read properties of undefined (reading 'toLowerCase')`). From the repo root on Linux its pattern matches every `.xml`, `node_modules` included; on Windows it matches nothing. `tests/run.js` therefore runs `brs` from each test's own `out/tests/<name>/` folder (`--root` and `cwd`).
 
 On-device unit tests with [Rooibos](https://github.com/georgejecook/rooibos) would be the next step for testing SceneGraph components themselves.
 
